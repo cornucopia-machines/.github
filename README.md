@@ -40,31 +40,33 @@ To scan a repo's whole history locally, e.g. when adding the workflow to an exis
 trufflehog git file://. --results=verified,unknown
 ```
 
-## Image vulnerability scanning (Trivy)
+## Vulnerability scanning (Grype)
 
 Two parts, because a build only sees an image as it was built, and new vulnerabilities get
 disclosed while it's deployed:
 
-- **The `trivy-image` action** goes in the build, right after the image is built. It fails on
-  vulnerabilities that have a fix (unfixable ones are listed in the job summary; base images always
-  carry some), and optionally on Dockerfile misconfigurations.
-- **The `trivy-scheduled.yml` workflow** rescans published images weekly and keeps one issue per
-  fixable vulnerability in sync, labelled `security`: it opens them, updates them, and closes them
-  once the vulnerability is gone.
+- **The [`grype-scan`](actions/grype-scan/action.yml) action** goes in the build. It scans an SBOM
+  (Syft's, or ESP-IDF's for firmware) or an image, lists the findings in the job summary, and fails
+  on the ones that have a fix. Unfixable ones are only listed; base images always carry some. Where
+  the fix isn't in your hands (a distroless base gets distro fixes only when it's rebuilt), set
+  `fail-on: none` to warn instead.
+- **The [`scheduled-image-scan.yml`](.github/workflows/scheduled-image-scan.yml) workflow**
+  rescans published images on a schedule and keeps one issue per fixable vulnerability in sync,
+  labelled `security`: it opens them, updates them, and closes them once the vulnerability is gone.
 
-Both run Trivy from a release pinned by checksum in [`actions/trivy-image/install.sh`](actions/trivy-image/install.sh),
-not through Aqua's own actions, whose tags were hijacked in 2026.
+Limit `pkg-types` to what nothing else covers, so a vulnerability isn't reported twice. Dependabot
+already alerts on npm, pip and the like from the lockfiles, so an image usually needs `deb` (or
+`apk`) for the distro's packages, and `binary` for runtimes found by their executables, such as the
+Node binary in a distroless image, which no package manager lists.
 
-In the build, after the image is loaded into the local Docker:
+In the build, after generating the image's SBOM (or scanning `docker:my-image:ci` directly):
 
 ```yaml
-      - name: Scan image for vulnerabilities
-        uses: cornucopia-machines/.github/actions/trivy-image@main
+      - name: Check the image for vulnerabilities
+        uses: cornucopia-machines/.github/actions/grype-scan@main
         with:
-          images: my-image:ci
-          dockerfile: Dockerfile
-          # Leave `library` out where Dependabot already alerts on the image's language packages.
-          pkg-types: os,library
+          targets: sbom:my-image.syft.cdx.json
+          pkg-types: deb,binary
 ```
 
 And as `.github/workflows/image-scan.yml`:
@@ -83,14 +85,38 @@ jobs:
       contents: read
       packages: read
       issues: write
-    uses: cornucopia-machines/.github/.github/workflows/trivy-scheduled.yml@main
+    uses: cornucopia-machines/.github/.github/workflows/scheduled-image-scan.yml@main
     with:
       images: |
         ghcr.io/cornucopia-machines/my-image:latest
+      pkg-types: deb,binary
 ```
 
-To skip a finding that doesn't apply, list it in the repo's `.trivyignore` (one ID per line), or
-use a `.trivyignore.yaml` to record the reason and an expiry date and point `ignorefile` at it.
+To skip a finding that doesn't apply, add an `ignore` rule to the repo's `.grype.yaml`, with a
+comment saying why.
 
 The issue sync is a separate action, [`sync-cve-issues`](actions/sync-cve-issues/action.yml), so
 other scanners can reuse it by writing their findings in the same JSON format.
+
+## Misconfiguration checks (Trivy)
+
+The [`trivy-config`](actions/trivy-config/action.yml) action checks Dockerfiles, compose files and
+the like for security misconfigurations, such as running as root or privileged containers, and fails
+on any. Grype doesn't do this.
+
+```yaml
+      - name: Check the Dockerfile
+        uses: cornucopia-machines/.github/actions/trivy-config@main
+        with:
+          paths: Dockerfile
+```
+
+Grype and Trivy are installed from releases pinned by checksum in each action's `install.sh`, not
+through the vendors' own actions; Aqua's Trivy action tags were hijacked in 2026.
+
+## Linting
+
+Everything here is used by every repo in the org, so the Lint workflow checks each change:
+actionlint for workflows, `check-jsonschema` for `action.yml` files (actionlint doesn't read them),
+shellcheck for the scripts, and [zizmor](https://docs.zizmor.sh) for security issues, configured in
+[`zizmor.yml`](zizmor.yml).

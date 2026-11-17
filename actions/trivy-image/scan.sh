@@ -47,6 +47,7 @@ fixable=$(jq '[.[] | select(.fixed != "")] | length' "$findings")
   if [ "$total" -eq 0 ]; then
     echo "None found in:"
     echo
+    # shellcheck disable=SC2016 # the backticks are literal Markdown, not command substitution
     grep -v '^[[:space:]]*$' <<< "$IMAGES" | sed 's/^[[:space:]]*/- `/; s/[[:space:]]*$/`/'
   else
     echo "$total found, $fixable with a fix."

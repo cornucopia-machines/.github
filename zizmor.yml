@@ -1,0 +1,10 @@
+# zizmor (run by the Lint workflow) config.
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # The reusable workflows use this repo's own actions at @main: they're developed together,
+        # and a reusable workflow can't refer to its own repo's actions by relative path.
+        cornucopia-machines/*: ref-pin
+        # Everything else stays pinned to a commit.
+        "*": hash-pin

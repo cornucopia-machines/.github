@@ -1,0 +1,42 @@
+name: Trivy misconfiguration check
+description: >
+  Checks Dockerfiles, compose files, Kubernetes manifests, Terraform and the like for security
+  misconfigurations (running as root, privileged containers, secrets in ENV, ...) with Trivy, and
+  fails on any. Vulnerabilities are the grype-scan action's job.
+
+inputs:
+  paths:
+    description: Files or directories to check, one per line.
+    required: true
+  severity:
+    description: Severities to fail on, comma-separated.
+    default: HIGH,CRITICAL
+  ignorefile:
+    description: >
+      Trivy ignore file, relative to the workspace, used if it exists: one check ID per line (e.g.
+      `DS-0002`), with a comment saying why.
+    default: .trivyignore
+
+runs:
+  using: composite
+  steps:
+    - name: Install Trivy
+      shell: bash
+      run: ${{ github.action_path }}/install.sh
+
+    - name: Check for misconfigurations
+      shell: bash
+      env:
+        PATHS: ${{ inputs.paths }}
+        SEVERITY: ${{ inputs.severity }}
+        IGNOREFILE: ${{ inputs.ignorefile }}
+      run: |
+        ignore_args=()
+        [ -f "$IGNOREFILE" ] && ignore_args=(--ignorefile "$IGNOREFILE")
+        status=0
+        while IFS= read -r path; do
+          path=$(echo "$path" | xargs)
+          [ -z "$path" ] && continue
+          trivy config --quiet --severity "$SEVERITY" ${ignore_args[@]+"${ignore_args[@]}"} --exit-code 1 "$path" || status=1
+        done <<< "$PATHS"
+        exit "$status"

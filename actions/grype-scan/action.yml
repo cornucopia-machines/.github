@@ -1,0 +1,71 @@
+name: Grype vulnerability scan
+description: >
+  Scans SBOMs or container images for known vulnerabilities with Grype, lists the findings in the
+  job summary, and fails (or warns) on the ones that have a fix.
+
+inputs:
+  targets:
+    description: >
+      What to scan, one per line, in Grype's syntax: `sbom:path/to/sbom.json` (CycloneDX or SPDX,
+      e.g. Syft's or ESP-IDF's), `registry:ghcr.io/org/image:tag` (pulled from the registry without
+      Docker; private registries need a `docker login` first), or `docker:image:tag` (the local
+      Docker, e.g. right after building with load: true).
+    required: true
+  pkg-types:
+    description: >
+      Grype package types to report, comma-separated (e.g. `deb,binary`), or empty for all. Leave
+      out what another check already covers, such as `npm` where Dependabot alerts on the lockfiles.
+      `binary` covers runtimes found by their executables (Node, Python, Go, ...), which no
+      package manager lists.
+    default: ''
+  severity:
+    description: Severities to report, comma-separated.
+    default: HIGH,CRITICAL
+  fail-on:
+    description: >
+      `fixable` fails on findings that have a fixed version (unfixable ones are listed, not failed
+      on: base images always carry some), `any` fails on every finding, `none` only warns about
+      fixable ones. Use `none` where the fix isn't in your hands, e.g. an image on a distroless
+      base, which has no package manager to install a distro fix with before the base is rebuilt.
+    default: fixable
+  config:
+    description: >
+      Grype config file, relative to the workspace, used if it exists. Its `ignore` rules skip
+      findings that don't apply; give each a comment saying why.
+    default: .grype.yaml
+
+outputs:
+  findings:
+    description: >
+      Path to a JSON array of the findings, one object per vulnerable package and target: id,
+      severity, title, url, target, package, installed, type, fixed (empty when there's no fix).
+      This is the format the sync-cve-issues action reads.
+    value: ${{ steps.scan.outputs.findings }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install Grype
+      id: install
+      shell: bash
+      run: ${{ github.action_path }}/install.sh
+
+    # Grype checks for a newer database on every run, but restoring today's (or an earlier one)
+    # saves most of the download when it's current.
+    - name: Restore the Grype database
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/grype-db
+        key: grype-db-${{ steps.install.outputs.date }}
+        restore-keys: grype-db-
+
+    - name: Scan
+      id: scan
+      shell: bash
+      env:
+        TARGETS: ${{ inputs.targets }}
+        PKG_TYPES: ${{ inputs.pkg-types }}
+        SEVERITY: ${{ inputs.severity }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        CONFIG: ${{ inputs.config }}
+      run: ${{ github.action_path }}/scan.sh

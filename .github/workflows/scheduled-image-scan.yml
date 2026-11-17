@@ -1,0 +1,79 @@
+# Reusable scheduled image scan: Grype over already-published images, with one issue per fixable
+# vulnerability, kept in sync with each run.
+#
+# Run it on a schedule from each repo that publishes or deploys images (see README.md). It
+# complements the grype-scan action in the build, which only sees an image as it was built: this
+# one catches vulnerabilities disclosed after that, while the image is deployed.
+name: Scheduled image scan
+
+on:
+  workflow_call:
+    inputs:
+      images:
+        description: >
+          Images to scan, one registry reference per line (`ghcr.io/org/image:tag`, or
+          `image@sha256:...` to scan exactly what's deployed). Pulled from the registry without
+          Docker; this repo's own ghcr.io images are readable with its token.
+        type: string
+        required: true
+      pkg-types:
+        description: Grype package types to report, comma-separated, or empty for all; see the grype-scan action.
+        type: string
+        default: ''
+      severity:
+        description: Severities to report, comma-separated.
+        type: string
+        default: HIGH,CRITICAL
+      config:
+        description: Grype config file in the caller's repo, for ignore rules; see the grype-scan action.
+        type: string
+        default: .grype.yaml
+
+jobs:
+  scan:
+    name: Grype
+    runs-on: ubuntu-latest
+    permissions:
+      # The caller's checkout, for its Grype config.
+      contents: read
+      # The caller's own images on ghcr.io.
+      packages: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Log in to GitHub Container Registry
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$GH_TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
+
+      - name: List the targets
+        id: targets
+        env:
+          IMAGES: ${{ inputs.images }}
+        run: |
+          {
+            echo 'targets<<EOF'
+            grep -v '^[[:space:]]*$' <<< "$IMAGES" | sed 's/^[[:space:]]*/registry:/'
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Scan images
+        id: scan
+        uses: cornucopia-machines/.github/actions/grype-scan@main
+        with:
+          targets: ${{ steps.targets.outputs.targets }}
+          pkg-types: ${{ inputs.pkg-types }}
+          severity: ${{ inputs.severity }}
+          config: ${{ inputs.config }}
+          # Findings become issues instead of failing the run.
+          fail-on: none
+
+      - name: Sync issues
+        uses: cornucopia-machines/.github/actions/sync-cve-issues@main
+        with:
+          findings: ${{ steps.scan.outputs.findings }}
+          source: image-scan

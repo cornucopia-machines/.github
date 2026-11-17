@@ -10,8 +10,10 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # A week: every repo in the org runs these actions, so let a compromised release get noticed
+    # and pulled before it's picked up.
     cooldown:
-      default-days: 2
+      default-days: 7
     groups:
       github-actions:
         patterns:
