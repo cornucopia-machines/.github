@@ -28,6 +28,14 @@ on:
         description: Platform the images run on, e.g. `linux/arm64`, for multi-platform images; the runner's (linux/amd64) by default.
         type: string
         default: ''
+      issues:
+        description: Keep issues in sync with the findings; when false, they're only listed in the job summary.
+        type: boolean
+        default: true
+      group-by:
+        description: '`id` for one issue per vulnerability, `target` for one per image; see the sync-cve-issues action.'
+        type: string
+        default: id
       config:
         description: Grype config file in the caller's repo, for ignore rules; see the grype-scan action.
         type: string
@@ -78,7 +86,9 @@ jobs:
           fail-on: none
 
       - name: Sync issues
+        if: inputs.issues
         uses: cornucopia-machines/.github/actions/sync-cve-issues@main
         with:
           findings: ${{ steps.scan.outputs.findings }}
           source: image-scan
+          group-by: ${{ inputs.group-by }}

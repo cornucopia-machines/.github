@@ -95,6 +95,10 @@ jobs:
 To skip a finding that doesn't apply, add an `ignore` rule to the repo's `.grype.yaml`, with a
 comment saying why.
 
+For images you don't build, set `group-by: target`: one issue per image, listing its
+vulnerabilities, since the fix is updating or replacing the image rather than anything per
+vulnerability. `issues: false` only lists the findings in the job summary.
+
 The issue sync is a separate action, [`sync-cve-issues`](actions/sync-cve-issues/action.yml), so
 other scanners can reuse it by writing their findings in the same JSON format.
 
