@@ -1,7 +1,8 @@
 # Shared GitHub Actions workflows
 
-Reusable workflows for `cornucopia-machines` repos. Each one is maintained here once, and its
-pinned actions are kept up to date by Dependabot in this repo.
+Reusable workflows and actions for `cornucopia-machines` repos. Each one is maintained here once,
+and its pinned actions are kept up to date by Dependabot in this repo. The repo is public, so
+public repos (including ones outside the org) can use them too.
 
 GitHub can only enforce a workflow across an organization (required-workflow rulesets) on paid
 plans, so every repo opts in with a small caller workflow of its own.
@@ -38,3 +39,58 @@ To scan a repo's whole history locally, e.g. when adding the workflow to an exis
 ```bash
 trufflehog git file://. --results=verified,unknown
 ```
+
+## Image vulnerability scanning (Trivy)
+
+Two parts, because a build only sees an image as it was built, and new vulnerabilities get
+disclosed while it's deployed:
+
+- **The `trivy-image` action** goes in the build, right after the image is built. It fails on
+  vulnerabilities that have a fix (unfixable ones are listed in the job summary; base images always
+  carry some), and optionally on Dockerfile misconfigurations.
+- **The `trivy-scheduled.yml` workflow** rescans published images weekly and keeps one issue per
+  fixable vulnerability in sync, labelled `security`: it opens them, updates them, and closes them
+  once the vulnerability is gone.
+
+Both run Trivy from a release pinned by checksum in [`actions/trivy-image/install.sh`](actions/trivy-image/install.sh),
+not through Aqua's own actions, whose tags were hijacked in 2026.
+
+In the build, after the image is loaded into the local Docker:
+
+```yaml
+      - name: Scan image for vulnerabilities
+        uses: cornucopia-machines/.github/actions/trivy-image@main
+        with:
+          images: my-image:ci
+          dockerfile: Dockerfile
+          # Leave `library` out where Dependabot already alerts on the image's language packages.
+          pkg-types: os,library
+```
+
+And as `.github/workflows/image-scan.yml`:
+
+```yaml
+name: Image scan
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  scan:
+    permissions:
+      contents: read
+      packages: read
+      issues: write
+    uses: cornucopia-machines/.github/.github/workflows/trivy-scheduled.yml@main
+    with:
+      images: |
+        ghcr.io/cornucopia-machines/my-image:latest
+```
+
+To skip a finding that doesn't apply, list it in the repo's `.trivyignore` (one ID per line), or
+use a `.trivyignore.yaml` to record the reason and an expiry date and point `ignorefile` at it.
+
+The issue sync is a separate action, [`sync-cve-issues`](actions/sync-cve-issues/action.yml), so
+other scanners can reuse it by writing their findings in the same JSON format.

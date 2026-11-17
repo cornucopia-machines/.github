@@ -1,10 +1,12 @@
-# Keeps the actions the shared workflows pin up to date; every calling repo picks the update up
-# from here.
+# Keeps the actions the shared workflows and actions pin up to date; every calling repo picks the
+# update up from here.
 version: 2
 
 updates:
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - /
+      - /actions/*
     schedule:
       interval: weekly
       day: monday

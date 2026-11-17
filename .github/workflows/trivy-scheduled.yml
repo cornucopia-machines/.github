@@ -1,0 +1,63 @@
+# Reusable scheduled image scan: Trivy over already-published images, with one issue per fixable
+# vulnerability, kept in sync with each run.
+#
+# Run it on a schedule from each repo that publishes images (see README.md). It complements the
+# trivy-image action in the build, which only sees an image as it was built: this one catches
+# vulnerabilities disclosed after that, while the image is deployed.
+name: Scheduled image scan
+
+on:
+  workflow_call:
+    inputs:
+      images:
+        description: Images to scan, one registry reference per line.
+        type: string
+        required: true
+      pkg-types:
+        description: '`os`, `library` or `os,library`; see the trivy-image action.'
+        type: string
+        default: os,library
+      severity:
+        description: Severities to report, comma-separated.
+        type: string
+        default: HIGH,CRITICAL
+      ignorefile:
+        description: Trivy ignore file in the caller's repo; see the trivy-image action.
+        type: string
+        default: .trivyignore
+
+jobs:
+  scan:
+    name: Trivy
+    runs-on: ubuntu-latest
+    permissions:
+      # The caller's checkout, for its Trivy ignore file.
+      contents: read
+      # The caller's own images on ghcr.io.
+      packages: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Log in to GitHub Container Registry
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$GH_TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
+
+      - name: Scan images
+        id: scan
+        uses: cornucopia-machines/.github/actions/trivy-image@main
+        with:
+          images: ${{ inputs.images }}
+          pkg-types: ${{ inputs.pkg-types }}
+          severity: ${{ inputs.severity }}
+          ignorefile: ${{ inputs.ignorefile }}
+          # Findings become issues instead of failing the run.
+          fail-on: none
+
+      - name: Sync issues
+        uses: cornucopia-machines/.github/actions/sync-cve-issues@main
+        with:
+          findings: ${{ steps.scan.outputs.findings }}
+          source: trivy-images

@@ -1,0 +1,83 @@
+name: Trivy image scan
+description: >
+  Scans container images for known vulnerabilities with Trivy (and optionally a Dockerfile for
+  misconfigurations), lists the findings in the job summary, and fails on the ones that have a fix.
+
+inputs:
+  images:
+    description: >
+      Images to scan, one per line: a local tag (e.g. right after building it with load: true) or a
+      registry reference. Private registries need a `docker login` first.
+    required: true
+  pkg-types:
+    description: >
+      `os` (the distro's packages), `library` (language packages: npm, pip, Go modules, ...) or
+      `os,library`. Leave `library` out where Dependabot already alerts on those from the lockfiles.
+    default: os,library
+  severity:
+    description: Severities to report, comma-separated.
+    default: HIGH,CRITICAL
+  fail-on:
+    description: >
+      `fixable` fails on findings that have a fixed version (unfixable ones are listed, not failed
+      on: base images always carry some), `any` fails on every finding, `none` never fails.
+    default: fixable
+  dockerfile:
+    description: A Dockerfile to also check for misconfigurations (fails on any at `severity`).
+    default: ''
+  ignorefile:
+    description: >
+      Trivy ignore file, relative to the workspace. `.trivyignore` lists one ID per line; for
+      reasons and expiry dates, use a `.trivyignore.yaml` and point this at it.
+    default: .trivyignore
+
+outputs:
+  findings:
+    description: >
+      Path to a JSON array of the findings, one object per vulnerable package and image: id,
+      severity, title, url, image, package, installed, fixed (empty when there's no fix). This is
+      the format the sync-cve-issues action reads.
+    value: ${{ steps.scan.outputs.findings }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install Trivy
+      id: install
+      shell: bash
+      run: ${{ github.action_path }}/install.sh
+
+    # Trivy refreshes its database when it's older than 6 hours, but restoring yesterday's saves
+    # most of the download, and makes a registry rate limit on it much less likely to fail the job.
+    - name: Restore the Trivy database
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/trivy-cache/db
+        key: trivy-db-${{ steps.install.outputs.date }}
+        restore-keys: trivy-db-
+
+    - name: Scan images
+      id: scan
+      shell: bash
+      env:
+        IMAGES: ${{ inputs.images }}
+        PKG_TYPES: ${{ inputs.pkg-types }}
+        SEVERITY: ${{ inputs.severity }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        IGNOREFILE: ${{ inputs.ignorefile }}
+      run: ${{ github.action_path }}/scan.sh
+
+    - name: Check the Dockerfile
+      if: inputs.dockerfile != ''
+      shell: bash
+      env:
+        DOCKERFILE: ${{ inputs.dockerfile }}
+        SEVERITY: ${{ inputs.severity }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        IGNOREFILE: ${{ inputs.ignorefile }}
+      run: |
+        exit_code=1
+        [ "$FAIL_ON" = none ] && exit_code=0
+        ignore_args=()
+        [ -f "$IGNOREFILE" ] && ignore_args=(--ignorefile "$IGNOREFILE")
+        trivy config --quiet --severity "$SEVERITY" ${ignore_args[@]+"${ignore_args[@]}"} --exit-code "$exit_code" "$DOCKERFILE"
