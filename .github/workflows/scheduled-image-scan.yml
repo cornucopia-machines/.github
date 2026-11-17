@@ -24,6 +24,10 @@ on:
         description: Severities to report, comma-separated.
         type: string
         default: HIGH,CRITICAL
+      platform:
+        description: Platform the images run on, e.g. `linux/arm64`, for multi-platform images; the runner's (linux/amd64) by default.
+        type: string
+        default: ''
       config:
         description: Grype config file in the caller's repo, for ignore rules; see the grype-scan action.
         type: string
@@ -69,6 +73,7 @@ jobs:
           pkg-types: ${{ inputs.pkg-types }}
           severity: ${{ inputs.severity }}
           config: ${{ inputs.config }}
+          platform: ${{ inputs.platform }}
           # Findings become issues instead of failing the run.
           fail-on: none
 

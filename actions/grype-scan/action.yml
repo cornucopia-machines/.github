@@ -28,6 +28,11 @@ inputs:
       fixable ones. Use `none` where the fix isn't in your hands, e.g. an image on a distroless
       base, which has no package manager to install a distro fix with before the base is rebuilt.
     default: fixable
+  platform:
+    description: >
+      Platform to scan for multi-platform images, e.g. `linux/arm64`; the runner's by default. Set it
+      to the platform the image actually runs on, or a registry scan picks the runner's variant.
+    default: ''
   config:
     description: >
       Grype config file, relative to the workspace, used if it exists. Its `ignore` rules skip
@@ -68,4 +73,5 @@ runs:
         SEVERITY: ${{ inputs.severity }}
         FAIL_ON: ${{ inputs.fail-on }}
         CONFIG: ${{ inputs.config }}
+        PLATFORM: ${{ inputs.platform }}
       run: ${{ github.action_path }}/scan.sh

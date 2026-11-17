@@ -10,6 +10,7 @@ echo '[]' > "$findings"
 
 config_args=()
 [ -f "$CONFIG" ] && config_args=(--config "$CONFIG")
+[ -n "${PLATFORM:-}" ] && config_args+=(--platform "$PLATFORM")
 
 while IFS= read -r target; do
   target=$(echo "$target" | xargs)  # trims surrounding whitespace
