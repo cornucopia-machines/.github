@@ -20,10 +20,14 @@ inputs:
   fail-on:
     description: >
       `fixable` fails on findings that have a fixed version (unfixable ones are listed, not failed
-      on: base images always carry some), `any` fails on every finding, `none` never fails.
+      on: base images always carry some), `any` fails on every finding, `none` only warns about
+      fixable ones. Use `none` where the fix isn't in your hands, e.g. an image on a distroless
+      base, which has no package manager to install a distro fix with before the base is rebuilt.
     default: fixable
   dockerfile:
-    description: A Dockerfile to also check for misconfigurations (fails on any at `severity`).
+    description: >
+      A Dockerfile to also check for misconfigurations. Fails on any at `severity` whatever
+      `fail-on` says, since the Dockerfile is always yours to fix.
     default: ''
   ignorefile:
     description: >
@@ -73,11 +77,8 @@ runs:
       env:
         DOCKERFILE: ${{ inputs.dockerfile }}
         SEVERITY: ${{ inputs.severity }}
-        FAIL_ON: ${{ inputs.fail-on }}
         IGNOREFILE: ${{ inputs.ignorefile }}
       run: |
-        exit_code=1
-        [ "$FAIL_ON" = none ] && exit_code=0
         ignore_args=()
         [ -f "$IGNOREFILE" ] && ignore_args=(--ignorefile "$IGNOREFILE")
-        trivy config --quiet --severity "$SEVERITY" ${ignore_args[@]+"${ignore_args[@]}"} --exit-code "$exit_code" "$DOCKERFILE"
+        trivy config --quiet --severity "$SEVERITY" ${ignore_args[@]+"${ignore_args[@]}"} --exit-code 1 "$DOCKERFILE"

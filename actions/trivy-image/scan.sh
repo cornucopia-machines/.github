@@ -58,7 +58,12 @@ fixable=$(jq '[.[] | select(.fixed != "")] | length' "$findings")
 } >> "${GITHUB_STEP_SUMMARY:-/dev/stdout}"
 
 case "$FAIL_ON" in
-  none) ;;
+  none)
+    # An annotation, so it shows on the run's (and a PR's) checks rather than only in the log.
+    if [ "$fixable" -gt 0 ]; then
+      echo "::warning::$fixable $SEVERITY vulnerabilities have a fix available; see the job summary."
+    fi
+    ;;
   any)
     if [ "$total" -gt 0 ]; then
       echo "::error::$total $SEVERITY vulnerabilities found; see the job summary."
