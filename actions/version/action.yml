@@ -1,0 +1,19 @@
+name: Version
+description: >
+  Works out the version of the checked-out commit, in the one format every product uses: the tag
+  for a release (`1.2.3`), or the last tag, the commits since and the commit for anything else
+  (`1.2.3-4-ga728583`, from `git describe --tags --always`). A repo with no tags gets the commit's
+  short hash. Needs the full history: check out with `fetch-depth: 0`.
+
+outputs:
+  version:
+    description: The version, e.g. `1.2.3` or `1.2.3-4-ga728583`.
+    value: ${{ steps.version.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Work out the version
+      id: version
+      shell: bash
+      run: ${{ github.action_path }}/version.sh

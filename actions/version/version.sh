@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Writes the checked-out commit's version to the step's `version` output. See action.yml for the
+# format.
+set -euo pipefail
+
+# A shallow clone has no tags to count from, so git describe would silently fall back to the bare
+# commit hash: fail instead, and say how to fix it. Fetching the history here would need git
+# credentials, which checkouts in the org don't keep (`persist-credentials: false`).
+if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
+  echo "::error::The version needs the full history; check out with 'fetch-depth: 0'."
+  exit 1
+fi
+
+version=$(git describe --tags --always)
+echo "Version: $version"
+echo "version=$version" >> "$GITHUB_OUTPUT"
