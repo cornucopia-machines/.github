@@ -1,6 +1,7 @@
 name: Upload release assets
 description: >
-  Uploads files to the GitHub release of a tag, replacing assets of the same name, so a re-run works.
+  Uploads files to the GitHub release of a tag. An asset of the same name fails the upload, unless
+  `clobber` is on.
   What happens when the tag has no release yet is up to the caller: create it, warn, or fail.
 
 inputs:
@@ -16,6 +17,11 @@ inputs:
       What to do when the tag has no release: `fail`; `create` it, named after the tag and with no notes;
       or `warn` and upload nothing, for a job that shouldn't fail over a missing release.
     default: fail
+  clobber:
+    description: >
+      Replace assets of the same name, e.g. so a re-run of the job works. Off by default, so a file
+      already on a release isn't silently swapped for a different build.
+    default: 'false'
   token:
     description: >
       Token for the GitHub API; it needs `contents: write`.
@@ -34,4 +40,5 @@ runs:
         TAG: ${{ inputs.tag }}
         PATTERNS: ${{ inputs.files }}
         IF_NO_RELEASE: ${{ inputs.if-no-release }}
+        CLOBBER: ${{ inputs.clobber }}
       run: '"$GITHUB_ACTION_PATH/upload.sh"'

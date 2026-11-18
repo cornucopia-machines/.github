@@ -3,6 +3,15 @@
 set -euo pipefail
 shopt -s globstar nullglob
 
+case "$CLOBBER" in
+  true) clobber_args=(--clobber) ;;
+  false) clobber_args=() ;;
+  *)
+    echo "::error::clobber must be true or false, not '$CLOBBER'"
+    exit 1
+    ;;
+esac
+
 case "$IF_NO_RELEASE" in
   fail | create | warn) ;;
   *)
@@ -51,4 +60,4 @@ if ! gh release view "$TAG" > /dev/null 2>&1; then
 fi
 
 echo "Uploading ${#files[@]} file(s) to the release of $TAG"
-gh release upload "$TAG" "${files[@]}" --clobber
+gh release upload "$TAG" "${files[@]}" ${clobber_args[@]+"${clobber_args[@]}"}

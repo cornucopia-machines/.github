@@ -131,8 +131,9 @@ inside the build.
 
 ## Release assets (`actions/upload-release-assets`)
 
-Uploads build outputs to the GitHub release of a tag, replacing assets of the same name so a re-run
-works, with the runner's `gh` rather than a third-party action. `files` takes one path or glob per
+Uploads build outputs to the GitHub release of a tag, with the runner's `gh` rather than a
+third-party action. An asset of the same name fails the upload, so a file already on a release isn't
+swapped for a different build; set `clobber: true` to replace it instead, e.g. so a re-run works. `files` takes one path or glob per
 line. `if-no-release` says what to do when the tag has no release (a draft counts): `fail` (the
 default), `create` it, or `warn` and skip, for a job that shouldn't fail over release notes. The job
 needs `contents: write`:
