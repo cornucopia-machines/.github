@@ -1,0 +1,37 @@
+name: Upload release assets
+description: >
+  Uploads files to the GitHub release of a tag, replacing assets of the same name, so a re-run works.
+  What happens when the tag has no release yet is up to the caller: create it, warn, or fail.
+
+inputs:
+  tag:
+    description: The release's tag.
+    default: ${{ github.ref_name }}
+  files:
+    description: >
+      Files to upload, one per line; each line may be a glob (`**` matches across directories).
+    required: true
+  if-no-release:
+    description: >
+      What to do when the tag has no release: `fail`; `create` it, named after the tag and with no notes;
+      or `warn` and upload nothing, for a job that shouldn't fail over a missing release.
+    default: fail
+  token:
+    description: >
+      Token for the GitHub API; it needs `contents: write`.
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    # $GITHUB_ACTION_PATH, not ${{ github.action_path }}: in a job that runs in a container, the
+    # latter is the runner's path, which doesn't exist inside the container.
+    - name: Upload release assets
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        GH_REPO: ${{ github.repository }}
+        TAG: ${{ inputs.tag }}
+        PATTERNS: ${{ inputs.files }}
+        IF_NO_RELEASE: ${{ inputs.if-no-release }}
+      run: '"$GITHUB_ACTION_PATH/upload.sh"'

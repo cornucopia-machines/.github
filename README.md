@@ -129,6 +129,35 @@ can't pass for the commit's; set `fail-on-dirty: false` to get a version ending 
 The firmware doesn't use it: ESP-IDF works out the same `git describe --dirty` version itself,
 inside the build.
 
+## Release assets (`actions/upload-release-assets`)
+
+Uploads build outputs to the GitHub release of a tag, replacing assets of the same name so a re-run
+works, with the runner's `gh` rather than a third-party action. `files` takes one path or glob per
+line. `if-no-release` says what to do when the tag has no release (a draft counts): `fail` (the
+default), `create` it, or `warn` and skip, for a job that shouldn't fail over release notes. The job
+needs `contents: write`:
+
+```yaml
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - uses: cornucopia-machines/.github/actions/upload-release-assets@main
+        with:
+          files: artifacts/**/*
+          if-no-release: create
+```
+
+`tag` defaults to the ref that triggered the run; for a `release` event, pass
+`${{ github.event.release.tag_name }}`.
+
 ## Vulnerability scanning (Grype)
 
 Two parts, because a build only sees an image as it was built, and new vulnerabilities get
