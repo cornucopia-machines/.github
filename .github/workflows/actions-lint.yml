@@ -48,11 +48,16 @@ jobs:
       # invalid: these two ignores drop exactly those errors. Remove them once actionlint supports it
       # (https://github.com/rhysd/actionlint/issues/711). Until then actionlint can't check the inputs
       # passed to a `$/` action or workflow.
+      #
+      # actionlint's list of actions/create-github-app-token@v3's inputs predates `client-id`, which replaces the
+      # deprecated `app-id`: the last two ignores drop exactly those errors. Remove them once actionlint knows it.
       - name: Lint workflows
         run: |
           "$RUNNER_TEMP/actionlint" -color \
             -ignore '"\$/[^"]*" at "uses" is not following the format' \
-            -ignore 'action "\$/[^"]*" in invalid format because ref is missing'
+            -ignore 'action "\$/[^"]*" in invalid format because ref is missing' \
+            -ignore 'missing input "app-id" which is required by action "actions/create-github-app-token@v3"' \
+            -ignore 'input "client-id" is not defined in action "actions/create-github-app-token@v3"'
 
       # actionlint only reads workflows; action.yml files get checked against their JSON schema
       # (from SchemaStore, bundled with check-jsonschema), which catches invalid YAML and unknown or
