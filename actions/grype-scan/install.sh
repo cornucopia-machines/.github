@@ -27,4 +27,11 @@ echo "$dir" >> "$GITHUB_PATH"
   # The version is pinned above; don't nag about newer ones.
   echo "GRYPE_CHECK_FOR_APP_UPDATE=false"
 } >> "$GITHUB_ENV"
-echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+# The database Grype would download now, to key the cache by: Anchore publishes a new one about daily, at no fixed
+# time, so a cache keyed by the date went stale within the day and every later run downloaded the database again.
+# Checked against an empty directory, so it always names the latest; it exits with 100 when there's one to get. The
+# date stands in if the check fails.
+db=$(GRYPE_DB_CACHE_DIR="$RUNNER_TEMP/grype-db-check" "$dir/grype" db check -o json 2>/dev/null |
+  jq -r '.candidateDB.path // empty' || true)
+echo "db=${db:-$(date -u +%F)}" >> "$GITHUB_OUTPUT"
