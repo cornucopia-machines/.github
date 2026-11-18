@@ -102,6 +102,33 @@ jobs:
       anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
+## Version (`actions/version`)
+
+Works out a commit's version, in the one format every product uses, so it's defined here once rather
+than in each workflow: the tag for a release (`1.2.3`), and for anything else the last tag, the
+commits since and the commit (`1.2.3-4-ga728583`, which is `git describe --tags --always --dirty`).
+It needs the full history, and fails on a shallow clone instead of quietly falling back to a bare
+hash. It also fails if tracked files have changed since the checkout, so a build of modified sources
+can't pass for the commit's; set `fail-on-dirty: false` to get a version ending in `-dirty` instead:
+
+```yaml
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Get version
+        id: version
+        uses: cornucopia-machines/.github/actions/version@main
+
+      - run: echo "Building $VERSION"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+```
+
+The firmware doesn't use it: ESP-IDF works out the same `git describe --dirty` version itself,
+inside the build.
+
 ## Vulnerability scanning (Grype)
 
 Two parts, because a build only sees an image as it was built, and new vulnerabilities get
