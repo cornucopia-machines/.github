@@ -215,9 +215,13 @@ jobs:
     uses: cornucopia-machines/.github/.github/workflows/actions-lint.yml@main
 ```
 
-zizmor uses this repo's [`zizmor.yml`](zizmor.yml), which enforces the pinning rule below, unless the
-calling repo has a `zizmor.yml` or `.github/zizmor.yml` of its own. To skip a finding that doesn't
-apply, add a `# zizmor: ignore[<audit>]` comment on its line, with a comment saying why. actionlint
+zizmor uses this repo's [`zizmor.yml`](zizmor.yml), which enforces the pinning rule above. A calling
+repo's own `zizmor.yml` or `.github/zizmor.yml` is merged on top of it rather than replacing it: maps
+merge, with the repo's value winning where both set the same key, and lists such as `ignore` add up.
+So a repo that ignores one file, or disables an audit, keeps the org's pinning policy, and loosening
+that policy takes an explicit entry under `rules.unpinned-uses.config.policies`. The job log shows
+the merged config. To skip a single finding, add a `# zizmor: ignore[<audit>]` comment on its line
+instead, with a comment saying why. actionlint
 reads the calling repo's `.github/actionlint.yaml`, if it has one.
 
 To run the same checks locally:
@@ -225,6 +229,8 @@ To run the same checks locally:
 ```bash
 actionlint
 curl -fsSL -o /tmp/zizmor.yml https://raw.githubusercontent.com/cornucopia-machines/.github/main/zizmor.yml
+# Only if the repo has its own config: merge it on top, as the workflow does (mikefarah's yq 4).
+yq eval-all --inplace '. as $item ireduce ({}; . *+ $item)' /tmp/zizmor.yml zizmor.yml
 zizmor --config /tmp/zizmor.yml .
 ```
 

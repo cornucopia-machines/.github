@@ -6,8 +6,8 @@
 # - zizmor for security problems: template injection, over-broad permissions, credentials left in
 #   checkouts, risky triggers, and actions not pinned the way the org pins them.
 #
-# zizmor uses the caller's own `zizmor.yml` (or `.github/zizmor.yml`) when it has one, and this
-# repo's otherwise, so every repo follows the same pinning policy (README.md, "Pinning actions").
+# zizmor uses this repo's `zizmor.yml`, so every repo follows the same pinning policy (README.md,
+# "Pinning actions"). A caller's own `zizmor.yml` (or `.github/zizmor.yml`) is merged on top of it.
 # Suppress a single finding where it is with a `# zizmor: ignore[<audit>]` comment saying why.
 #
 # Call it from each repo with a small workflow (see README.md), on pull requests that touch
@@ -58,16 +58,34 @@ jobs:
           fi
           pipx run "check-jsonschema==$CHECK_JSONSCHEMA_VERSION" --builtin-schema vendor.github-actions "${actions[@]}"
 
-      # The shared config is taken from main, like the shared actions (`@main`).
-      - name: Get the org's zizmor config
+      # The org's config is taken from main, like the shared actions (`@main`), except in this repo,
+      # where a PR's own version is the one to test. A repo's own config is merged on top of it
+      # rather than replacing it, so a repo that only adds an ignore keeps the org's pinning policy:
+      # maps merge (the repo's value wins where both set a key) and lists, such as `ignore`, add up.
+      # yq is mikefarah's yq 4, preinstalled on GitHub's Ubuntu runners.
+      - name: Get the zizmor config
+        env:
+          REPOSITORY: ${{ github.repository }}
         run: |
-          if [ -f zizmor.yml ] || [ -f .github/zizmor.yml ]; then
-            echo "Using the repo's own zizmor config."
+          config="$RUNNER_TEMP/zizmor.yml"
+          if [ "$REPOSITORY" = cornucopia-machines/.github ]; then
+            cp zizmor.yml "$config"
           else
-            curl -fsSL --retry 3 -o "$RUNNER_TEMP/zizmor.yml" \
+            curl -fsSL --retry 3 -o "$config" \
               https://raw.githubusercontent.com/cornucopia-machines/.github/main/zizmor.yml
-            echo "ZIZMOR_CONFIG=$RUNNER_TEMP/zizmor.yml" >> "$GITHUB_ENV"
+            for own in zizmor.yml .github/zizmor.yml; do
+              if [ -f "$own" ]; then
+                echo "Merging $own on top of the org's config."
+                # shellcheck disable=SC2016 # $item is yq's variable, not the shell's.
+                yq eval-all --inplace '. as $item ireduce ({}; . *+ $item)' "$config" "$own"
+              fi
+            done
           fi
+          # An explicit --config also stops zizmor from finding the repo's own file by itself.
+          echo "ZIZMOR_CONFIG=$config" >> "$GITHUB_ENV"
+          echo "::group::zizmor config"
+          cat "$config"
+          echo "::endgroup::"
 
       - name: Audit with zizmor
         env:
