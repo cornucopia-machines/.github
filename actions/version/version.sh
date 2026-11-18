@@ -11,6 +11,11 @@ if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
   exit 1
 fi
 
-version=$(git describe --tags --always)
+version=$(git describe --tags --always --dirty)
+if [[ "$version" == *-dirty && "$FAIL_ON_DIRTY" == true ]]; then
+  echo "::error::Tracked files changed since the checkout, so this isn't the commit's version ($version):"
+  git status --short --untracked-files=no
+  exit 1
+fi
 echo "Version: $version"
 echo "version=$version" >> "$GITHUB_OUTPUT"
