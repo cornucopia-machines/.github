@@ -9,8 +9,18 @@ rules:
         # GitHub's own actions: their major version tag (actions/checkout@v7)
         actions/*: ref-pin
         github/*: ref-pin
+        # Docker's, also on their major tag: we already follow Docker's own releases elsewhere (the images we build
+        # from, and the BuildKit image setup-buildx-action pulls at a floating tag), so a commit pin on the action
+        # protects nothing those don't already expose
+        docker/*: ref-pin
         # Ours, at @main: they're developed together with the reusable workflows here, and a reusable workflow can't
         # refer to its own repo's actions by relative path
         cornucopia-machines/*: ref-pin
         # Everyone else: a commit SHA, with the version in a comment
         "*": hash-pin
+  # Flags caches in workflows that publish releases. GitHub scopes caches by ref: a pull request's run can only read
+  # the default branch's caches, never write them, so poisoning one takes code already running on main, which could
+  # do worse directly. Not worth an ignore comment on every actions/cache. Instead, a release build that ships an
+  # artifact installs from its lockfile rather than restoring a cache (see README.md, "Caches").
+  cache-poisoning:
+    disable: true
