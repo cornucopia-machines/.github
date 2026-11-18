@@ -135,9 +135,45 @@ far fewer updates. Each repo's Dependabot checks `github-actions` monthly, group
 cooldown: in practice a PR only when a third-party action released, or GitHub one shipped a new major. Security
 updates come right away regardless.
 
+## Actions lint (`actions-lint.yml`)
+
+Lints a repo's workflows and actions: [actionlint](https://github.com/rhysd/actionlint) for mistakes
+(syntax, expression types, unknown inputs, shellcheck on `run:` scripts), `check-jsonschema` for
+`action.yml` files (actionlint doesn't read them), and [zizmor](https://docs.zizmor.sh) for security
+problems (template injection, over-broad permissions, credentials left in checkouts, risky triggers,
+pinning). Add this to a repo as `.github/workflows/actions-lint.yml`:
+
+```yaml
+name: Actions lint
+
+on:
+  pull_request:
+    paths:
+      - .github/**
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    uses: cornucopia-machines/.github/.github/workflows/actions-lint.yml@main
+```
+
+zizmor uses this repo's [`zizmor.yml`](zizmor.yml), which enforces the pinning rule below, unless the
+calling repo has a `zizmor.yml` or `.github/zizmor.yml` of its own. To skip a finding that doesn't
+apply, add a `# zizmor: ignore[<audit>]` comment on its line, with a comment saying why. actionlint
+reads the calling repo's `.github/actionlint.yaml`, if it has one.
+
+To run the same checks locally:
+
+```bash
+actionlint
+curl -fsSL -o /tmp/zizmor.yml https://raw.githubusercontent.com/cornucopia-machines/.github/main/zizmor.yml
+zizmor --config /tmp/zizmor.yml .
+```
+
 ## Linting
 
-Everything here is used by every repo in the org, so the Lint workflow checks each change:
-actionlint for workflows, `check-jsonschema` for `action.yml` files (actionlint doesn't read them),
-shellcheck for the scripts, and [zizmor](https://docs.zizmor.sh) for security issues, configured in
-[`zizmor.yml`](zizmor.yml).
+Everything here is used by every repo in the org, so the Lint workflow checks each change: it runs
+the Actions lint above from the same commit, configured by [`zizmor.yml`](zizmor.yml), and
+shellcheck for the scripts.

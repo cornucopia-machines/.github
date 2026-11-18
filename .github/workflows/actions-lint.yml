@@ -1,0 +1,76 @@
+# Reusable lint for a repo's GitHub Actions workflows and actions:
+#
+# - actionlint for mistakes in workflows: syntax, expression types, unknown inputs, and shellcheck on
+#   `run:` scripts. It reads the caller's `.github/actionlint.yaml` if there is one.
+# - check-jsonschema for `action.yml` files, which actionlint doesn't read.
+# - zizmor for security problems: template injection, over-broad permissions, credentials left in
+#   checkouts, risky triggers, and actions not pinned the way the org pins them.
+#
+# zizmor uses the caller's own `zizmor.yml` (or `.github/zizmor.yml`) when it has one, and this
+# repo's otherwise, so every repo follows the same pinning policy (README.md, "Pinning actions").
+# Suppress a single finding where it is with a `# zizmor: ignore[<audit>]` comment saying why.
+#
+# Call it from each repo with a small workflow (see README.md), on pull requests that touch
+# `.github/`.
+name: Actions lint
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Actions lint
+    runs-on: ubuntu-latest
+    env:
+      ACTIONLINT_VERSION: 1.7.12
+      ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+      CHECK_JSONSCHEMA_VERSION: 0.39.0
+      ZIZMOR_VERSION: 1.32.0
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Pinned by checksum, like the scanners the actions install.
+      - name: Install actionlint
+        run: |
+          curl -fsSL --retry 3 -o actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v$ACTIONLINT_VERSION/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "$ACTIONLINT_SHA256  actionlint.tar.gz" | sha256sum --check --quiet
+          tar -xzf actionlint.tar.gz -C "$RUNNER_TEMP" actionlint
+          rm actionlint.tar.gz
+
+      - name: Lint workflows
+        run: '"$RUNNER_TEMP/actionlint" -color'
+
+      # actionlint only reads workflows; action.yml files get checked against their JSON schema
+      # (from SchemaStore, bundled with check-jsonschema), which catches invalid YAML and unknown or
+      # misplaced keys.
+      - name: Validate actions
+        run: |
+          mapfile -t actions < <(git ls-files ':(glob)**/action.yml' ':(glob)**/action.yaml')
+          if [ "${#actions[@]}" -eq 0 ]; then
+            echo "No actions to validate."
+            exit 0
+          fi
+          pipx run "check-jsonschema==$CHECK_JSONSCHEMA_VERSION" --builtin-schema vendor.github-actions "${actions[@]}"
+
+      # The shared config is taken from main, like the shared actions (`@main`).
+      - name: Get the org's zizmor config
+        run: |
+          if [ -f zizmor.yml ] || [ -f .github/zizmor.yml ]; then
+            echo "Using the repo's own zizmor config."
+          else
+            curl -fsSL --retry 3 -o "$RUNNER_TEMP/zizmor.yml" \
+              https://raw.githubusercontent.com/cornucopia-machines/.github/main/zizmor.yml
+            echo "ZIZMOR_CONFIG=$RUNNER_TEMP/zizmor.yml" >> "$GITHUB_ENV"
+          fi
+
+      - name: Audit with zizmor
+        env:
+          # For the online audits, e.g. actions with known vulnerabilities.
+          GH_TOKEN: ${{ github.token }}
+        run: pipx run "zizmor==$ZIZMOR_VERSION" --format github .
