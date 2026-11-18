@@ -188,14 +188,25 @@ Every repo in the org pins the actions its workflows use by how far we trust who
 | Publisher | Pinned to | Example |
 | --- | --- | --- |
 | GitHub (`actions/*`, `github/*`) | the major version tag | `actions/checkout@v7` |
+| Docker (`docker/*`) | the major version tag | `docker/login-action@v4` |
 | Us (`cornucopia-machines/*`) | `@main` | `cornucopia-machines/.github/actions/grype-scan@main` |
 | Everyone else | a commit SHA, with the version in a comment | `trufflesecurity/trufflehog@<sha> # v3.99.9` |
 
 The hijacked tags that made SHA pinning common (tj-actions/changed-files in 2025, Aqua's trivy-action) were
 third-party actions, so those stay pinned to a commit. Following GitHub's own major tags is a risk we accept, for
-far fewer updates. Each repo's Dependabot checks `github-actions` monthly, grouped into one PR, with a 7-day
+far fewer updates: if GitHub is compromised, so is the runner every workflow runs on. Docker's actions get the same
+treatment for the same reason: our images are built from Docker's base images, and `setup-buildx-action` pulls
+BuildKit at a floating tag, so pinning the action's commit wouldn't keep a compromised Docker out. Each repo's Dependabot checks `github-actions` monthly, grouped into one PR, with a 7-day
 cooldown: in practice a PR only when a third-party action released, or GitHub one shipped a new major. Security
 updates come right away regardless.
+
+## Caches
+
+The shared zizmor config turns off its `cache-poisoning` audit, which flags `actions/cache` in any workflow that
+publishes releases. GitHub scopes caches by ref: a pull request's run can read the default branch's caches but
+never write them, so poisoning one takes code that already runs on the default branch. Instead of an ignore comment
+on every cache, follow one rule: **a build whose output ships (a release tag, a deploy) installs dependencies from
+the lockfile and doesn't restore a cache.** Test, lint and PR builds can cache freely.
 
 ## Actions lint (`actions-lint.yml`)
 
