@@ -118,6 +118,23 @@ on any. Grype doesn't do this.
 Grype and Trivy are installed from releases pinned by checksum in each action's `install.sh`, not
 through the vendors' own actions; Aqua's Trivy action tags were hijacked in 2026.
 
+## Pinning actions
+
+Every repo in the org pins the actions its workflows use by how far we trust who publishes them; zizmor
+([`zizmor.yml`](zizmor.yml)) enforces it wherever the shared lint runs:
+
+| Publisher | Pinned to | Example |
+| --- | --- | --- |
+| GitHub (`actions/*`, `github/*`) | the major version tag | `actions/checkout@v7` |
+| Us (`cornucopia-machines/*`) | `@main` | `cornucopia-machines/.github/actions/grype-scan@main` |
+| Everyone else | a commit SHA, with the version in a comment | `trufflesecurity/trufflehog@<sha> # v3.99.9` |
+
+The hijacked tags that made SHA pinning common (tj-actions/changed-files in 2025, Aqua's trivy-action) were
+third-party actions, so those stay pinned to a commit. Following GitHub's own major tags is a risk we accept, for
+far fewer updates. Each repo's Dependabot checks `github-actions` monthly, grouped into one PR, with a 7-day
+cooldown: in practice a PR only when a third-party action released, or GitHub one shipped a new major. Security
+updates come right away regardless.
+
 ## Linting
 
 Everything here is used by every repo in the org, so the Lint workflow checks each change:

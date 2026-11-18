@@ -2,9 +2,15 @@
 rules:
   unpinned-uses:
     config:
+      # How the org pins actions, by how far we trust who publishes them (see README.md, "Pinning actions"). Tag
+      # hijacks have hit third-party actions (tj-actions/changed-files, Aqua's trivy-action), so those stay pinned to
+      # a commit; following GitHub's own major tags is a risk we accept for far fewer update PRs.
       policies:
-        # The reusable workflows use this repo's own actions at @main: they're developed together,
-        # and a reusable workflow can't refer to its own repo's actions by relative path.
+        # GitHub's own actions: their major version tag (actions/checkout@v7)
+        actions/*: ref-pin
+        github/*: ref-pin
+        # Ours, at @main: they're developed together with the reusable workflows here, and a reusable workflow can't
+        # refer to its own repo's actions by relative path
         cornucopia-machines/*: ref-pin
-        # Everything else stays pinned to a commit.
+        # Everyone else: a commit SHA, with the version in a comment
         "*": hash-pin

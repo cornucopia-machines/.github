@@ -7,9 +7,10 @@ updates:
     directories:
       - /
       - /actions/*
+    # Monthly, grouped: GitHub's actions follow their major tags, so they only come up for a new major, and the few
+    # third-party ones (pinned to a commit) arrive together. Security updates come right away regardless.
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     # A week: every repo in the org runs these actions, so let a compromised release get noticed
     # and pulled before it's picked up.
     cooldown:
