@@ -42,16 +42,17 @@ trufflehog git file://. --results=verified,unknown
 
 ## Static analysis (`semgrep.yml`)
 
-Runs [Semgrep](https://semgrep.dev) Community Edition over each pull request, and fails on the
-findings it adds; code that was there before doesn't block. It's free on private repos, unlike
-CodeQL. Add this to a repo as `.github/workflows/semgrep.yml`:
+Runs [Semgrep](https://semgrep.dev) Community Edition and fails on any finding. It's free on private
+repos, unlike CodeQL. Before adding it to a repo, run Semgrep there and fix or skip what it finds,
+so the repo starts from zero. Then add this as `.github/workflows/semgrep.yml`:
 
 ```yaml
 name: Semgrep
 
 on:
+  push:
+    branches: [main]
   pull_request:
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -64,10 +65,15 @@ jobs:
 ```
 
 `config` picks the rules: `p/default` (Semgrep's recommended set, for every language it supports)
-unless you name others, e.g. `p/typescript p/nodejs`. A manual run (`workflow_dispatch`) scans
-everything and lists what it finds without failing, to see what's already there. To skip a finding
-that doesn't apply, add a `// nosemgrep: <rule-id>` comment (`#` in Python or YAML) saying why;
-paths go in `.semgrepignore`.
+unless you name others, e.g. `p/typescript p/nodejs`. To skip a finding that doesn't apply, add a
+`// nosemgrep: <rule-id>` comment (`#` in Python or YAML) on its line, saying why; whole paths go in
+`.semgrepignore`.
+
+To run it locally, with the same version and rules:
+
+```bash
+pipx run semgrep==1.184.0 scan --metrics=off --config p/default src tests
+```
 
 ## AI security review (`security-review.yml`)
 

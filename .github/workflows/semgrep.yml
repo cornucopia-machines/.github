@@ -1,13 +1,14 @@
 # Reusable static analysis (SAST) with Semgrep Community Edition, which is free on private repos
 # (CodeQL needs GitHub Advanced Security there).
 #
-# On a pull request it only reports findings the PR adds (`--baseline-commit`), and fails on them,
-# so code that was there before doesn't block every PR. Any other event (e.g. workflow_dispatch)
-# scans everything and only lists the findings, for a look at what's already there.
+# It scans everything and fails on any finding, so a repo starts from zero findings: fix or
+# explicitly skip what's there before calling it. To list the findings, run Semgrep locally (see
+# README.md).
 #
-# Call it from each repo with a small workflow (see README.md), on pull requests. Semgrep skips what
-# the repo's `.semgrepignore` lists (by default: tests, node_modules, build output and the like). To
-# skip one finding that doesn't apply, add a `// nosemgrep: <rule-id>` comment saying why.
+# Call it from each repo with a small workflow (see README.md), on pull requests and pushes to main.
+# Semgrep skips what the repo's `.semgrepignore` lists (by default: tests, node_modules, build output
+# and the like). To skip one finding that doesn't apply, add a `// nosemgrep: <rule-id>` comment
+# saying why.
 name: Semgrep
 
 on:
@@ -36,15 +37,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # The baseline commit (the PR's base) has to be in the history.
-          fetch-depth: 0
           persist-credentials: false
 
       - name: Scan
         env:
           PATHS: ${{ inputs.paths }}
           CONFIG: ${{ inputs.config }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           read -ra paths <<< "$PATHS"
           configs=()
@@ -52,8 +50,4 @@ jobs:
             configs+=(--config "$config")
           done
           # Metrics off: nothing about the code is sent to Semgrep, only the rule download is.
-          args=(scan --metrics=off "${configs[@]}")
-          if [ -n "$BASE_SHA" ]; then
-            args+=(--error --baseline-commit "$BASE_SHA")
-          fi
-          pipx run "semgrep==$SEMGREP_VERSION" "${args[@]}" "${paths[@]}"
+          pipx run "semgrep==$SEMGREP_VERSION" scan --metrics=off --error "${configs[@]}" "${paths[@]}"
