@@ -40,6 +40,62 @@ To scan a repo's whole history locally, e.g. when adding the workflow to an exis
 trufflehog git file://. --results=verified,unknown
 ```
 
+## Static analysis (`semgrep.yml`)
+
+Runs [Semgrep](https://semgrep.dev) Community Edition over each pull request, and fails on the
+findings it adds; code that was there before doesn't block. It's free on private repos, unlike
+CodeQL. Add this to a repo as `.github/workflows/semgrep.yml`:
+
+```yaml
+name: Semgrep
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    uses: cornucopia-machines/.github/.github/workflows/semgrep.yml@main
+    with:
+      paths: src tests
+```
+
+`config` picks the rules: `p/default` (Semgrep's recommended set, for every language it supports)
+unless you name others, e.g. `p/typescript p/nodejs`. A manual run (`workflow_dispatch`) scans
+everything and lists what it finds without failing, to see what's already there. To skip a finding
+that doesn't apply, add a `// nosemgrep: <rule-id>` comment (`#` in Python or YAML) saying why;
+paths go in `.semgrepignore`.
+
+## AI security review (`security-review.yml`)
+
+Runs Anthropic's [claude-code-security-review](https://github.com/anthropics/claude-code-security-review),
+the CI version of Claude Code's `/security-review`, on each pull request's first run. It comments on
+the lines it thinks are vulnerable, and doesn't fail the PR. It needs an Anthropic API key as a repo
+secret; without one (e.g. on Dependabot's PRs) it skips. Add this to a repo as
+`.github/workflows/security-review.yml`:
+
+```yaml
+name: Security review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: cornucopia-machines/.github/.github/workflows/security-review.yml@main
+    secrets:
+      anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
 ## Vulnerability scanning (Grype)
 
 Two parts, because a build only sees an image as it was built, and new vulnerabilities get

@@ -1,0 +1,61 @@
+# Reusable AI security review of pull requests: Anthropic's claude-code-security-review, the CI
+# version of Claude Code's `/security-review`. It reads the PR's diff, comments on the lines with
+# likely vulnerabilities, and lists them in the job summary. It doesn't fail the PR: its findings
+# are for the reviewer to weigh.
+#
+# It reviews each PR once, on its first run (later pushes are skipped, to avoid re-reporting the same
+# findings), and only runs when the caller passes an Anthropic API key: without one, for example on
+# Dependabot's PRs, which get no repo secrets, it skips with a notice.
+#
+# Call it from each repo with a small workflow (see README.md), on pull requests.
+name: Security review
+
+on:
+  workflow_call:
+    inputs:
+      exclude-directories:
+        description: Comma-separated directories to leave out of the review.
+        type: string
+        default: ''
+    secrets:
+      anthropic-api-key:
+        description: Anthropic API key the review runs on.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: Security review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # To comment on the PR.
+      pull-requests: write
+    steps:
+      - name: Check for an API key
+        id: key
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No Anthropic API key, so no security review."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.key.outputs.present == 'true'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      # Pinned to a commit of main: the action has no releases.
+      - uses: anthropics/claude-code-security-review@0c6a49f1fa56a1d472575da86a94dbc1edb78eda # main, 2026-11-18
+        if: steps.key.outputs.present == 'true'
+        with:
+          claude-api-key: ${{ secrets.anthropic-api-key }}
+          exclude-directories: ${{ inputs.exclude-directories }}
