@@ -233,7 +233,9 @@ reads the calling repo's `.github/actionlint.yaml`, if it has one.
 To run the same checks locally:
 
 ```bash
-actionlint
+# The ignores drop actionlint's errors on `uses: $/...`, which it doesn't support yet (see the workflow).
+actionlint -ignore '"\$/[^"]*" at "uses" is not following the format' \
+  -ignore 'action "\$/[^"]*" in invalid format because ref is missing'
 curl -fsSL -o /tmp/zizmor.yml https://raw.githubusercontent.com/cornucopia-machines/.github/main/zizmor.yml
 # Only if the repo has its own config: merge it on top, as the workflow does (mikefarah's yq 4).
 yq eval-all --inplace '. as $item ireduce ({}; . *+ $item)' /tmp/zizmor.yml zizmor.yml

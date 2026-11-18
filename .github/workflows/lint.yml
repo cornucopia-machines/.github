@@ -13,9 +13,7 @@ jobs:
   # The same lint every repo calls, from this commit, so a change to it is tested before callers pick
   # it up from main.
   actions:
-    # zizmor suggests GitHub's newer `$/` self-repository syntax; `./` is kept until actionlint, which
-    # checks this file, understands it too.
-    uses: ./.github/workflows/actions-lint.yml # zizmor: ignore[self-repository]
+    uses: $/.github/workflows/actions-lint.yml
 
   shellcheck:
     name: Shellcheck

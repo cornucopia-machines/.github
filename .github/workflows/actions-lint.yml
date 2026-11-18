@@ -43,8 +43,16 @@ jobs:
           tar -xzf actionlint.tar.gz -C "$RUNNER_TEMP" actionlint
           rm actionlint.tar.gz
 
+      # actionlint doesn't know GitHub's self-repository syntax (`uses: $/...`, the recommended way to
+      # refer to an action or reusable workflow in the same repo) yet, and calls those references
+      # invalid: these two ignores drop exactly those errors. Remove them once actionlint supports it
+      # (https://github.com/rhysd/actionlint/issues/711). Until then actionlint can't check the inputs
+      # passed to a `$/` action or workflow.
       - name: Lint workflows
-        run: '"$RUNNER_TEMP/actionlint" -color'
+        run: |
+          "$RUNNER_TEMP/actionlint" -color \
+            -ignore '"\$/[^"]*" at "uses" is not following the format' \
+            -ignore 'action "\$/[^"]*" in invalid format because ref is missing'
 
       # actionlint only reads workflows; action.yml files get checked against their JSON schema
       # (from SchemaStore, bundled with check-jsonschema), which catches invalid YAML and unknown or
