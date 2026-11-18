@@ -57,14 +57,13 @@ runs:
       shell: bash
       run: '"$GITHUB_ACTION_PATH/install.sh"'
 
-    # Grype checks for a newer database on every run, but restoring today's (or an earlier one)
-    # saves most of the download when it's current.
+    # Keyed by the database Grype would download now (see install.sh), so a hit is current and Grype downloads
+    # nothing. No fallback to an older one: restoring it takes about 20 seconds, and Grype would replace it anyway.
     - name: Restore the Grype database
       uses: actions/cache@v6
       with:
         path: ${{ runner.temp }}/grype-db
-        key: grype-db-${{ steps.install.outputs.date }}
-        restore-keys: grype-db-
+        key: grype-db-${{ steps.install.outputs.db }}
 
     - name: Scan
       id: scan
