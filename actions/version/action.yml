@@ -20,9 +20,11 @@ outputs:
 runs:
   using: composite
   steps:
+    # $GITHUB_ACTION_PATH, not ${{ github.action_path }}: in a job that runs in a container, the
+    # latter is the runner's path, which doesn't exist inside the container.
     - name: Work out the version
       id: version
       shell: bash
       env:
         FAIL_ON_DIRTY: ${{ inputs.fail-on-dirty }}
-      run: ${{ github.action_path }}/version.sh
+      run: '"$GITHUB_ACTION_PATH/version.sh"'
