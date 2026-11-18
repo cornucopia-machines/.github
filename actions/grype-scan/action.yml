@@ -50,10 +50,12 @@ outputs:
 runs:
   using: composite
   steps:
+    # $GITHUB_ACTION_PATH, not ${{ github.action_path }}: in a job that runs in a container, the
+    # latter is the runner's path, which doesn't exist inside the container.
     - name: Install Grype
       id: install
       shell: bash
-      run: ${{ github.action_path }}/install.sh
+      run: '"$GITHUB_ACTION_PATH/install.sh"'
 
     # Grype checks for a newer database on every run, but restoring today's (or an earlier one)
     # saves most of the download when it's current.
@@ -74,4 +76,4 @@ runs:
         FAIL_ON: ${{ inputs.fail-on }}
         CONFIG: ${{ inputs.config }}
         PLATFORM: ${{ inputs.platform }}
-      run: ${{ github.action_path }}/scan.sh
+      run: '"$GITHUB_ACTION_PATH/scan.sh"'

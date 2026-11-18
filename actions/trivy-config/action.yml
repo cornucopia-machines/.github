@@ -20,9 +20,11 @@ inputs:
 runs:
   using: composite
   steps:
+    # $GITHUB_ACTION_PATH, not ${{ github.action_path }}: in a job that runs in a container, the
+    # latter is the runner's path, which doesn't exist inside the container.
     - name: Install Trivy
       shell: bash
-      run: ${{ github.action_path }}/install.sh
+      run: '"$GITHUB_ACTION_PATH/install.sh"'
 
     - name: Check for misconfigurations
       shell: bash
