@@ -10,44 +10,18 @@ permissions:
   contents: read
 
 jobs:
-  lint:
-    name: Lint
+  # The same lint every repo calls, from this commit, so a change to it is tested before callers pick
+  # it up from main.
+  actions:
+    uses: $/.github/workflows/actions-lint.yml
+
+  shellcheck:
+    name: Shellcheck
     runs-on: ubuntu-latest
-    env:
-      ACTIONLINT_VERSION: 1.7.12
-      ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
-      CHECK_JSONSCHEMA_VERSION: 0.39.0
-      ZIZMOR_VERSION: 1.32.0
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      # Pinned by checksum, like the scanners the actions install.
-      - name: Install actionlint
-        run: |
-          curl -fsSL --retry 3 -o actionlint.tar.gz \
-            "https://github.com/rhysd/actionlint/releases/download/v$ACTIONLINT_VERSION/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          echo "$ACTIONLINT_SHA256  actionlint.tar.gz" | sha256sum --check --quiet
-          tar -xzf actionlint.tar.gz -C "$RUNNER_TEMP" actionlint
-          rm actionlint.tar.gz
-
-      - name: Lint workflows
-        run: '"$RUNNER_TEMP/actionlint" -color'
-
-      # actionlint only reads workflows; action.yml files get checked against their JSON schema
-      # (from SchemaStore, bundled with check-jsonschema), which catches invalid YAML and unknown or
-      # misplaced keys.
-      - name: Validate actions
-        run: pipx run "check-jsonschema==$CHECK_JSONSCHEMA_VERSION" --builtin-schema vendor.github-actions actions/*/action.yml
-
       - name: Check shell scripts
         run: shellcheck actions/*/*.sh
-
-      # Security audit of workflows and actions: template injection, over-broad permissions,
-      # credentials left in checkouts, unpinned actions, and the like.
-      - name: Audit with zizmor
-        env:
-          # For the online audits, e.g. actions with known vulnerabilities.
-          GH_TOKEN: ${{ github.token }}
-        run: pipx run "zizmor==$ZIZMOR_VERSION" --format github .

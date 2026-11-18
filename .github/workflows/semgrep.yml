@@ -1,0 +1,53 @@
+# Reusable static analysis (SAST) with Semgrep Community Edition, which is free on private repos
+# (CodeQL needs GitHub Advanced Security there).
+#
+# It scans everything and fails on any finding, so a repo starts from zero findings: fix or
+# explicitly skip what's there before calling it. To list the findings, run Semgrep locally (see
+# README.md).
+#
+# Call it from each repo with a small workflow (see README.md), on pull requests and pushes to main.
+# Semgrep skips what the repo's `.semgrepignore` lists (by default: tests, node_modules, build output
+# and the like). To skip one finding that doesn't apply, add a `// nosemgrep: <rule-id>` comment
+# saying why.
+name: Semgrep
+
+on:
+  workflow_call:
+    inputs:
+      paths:
+        description: Space-separated paths to scan, relative to the repo root.
+        type: string
+        default: .
+      config:
+        description: >-
+          Semgrep rules to use: a registry ruleset (`p/...`) or a file in the repo. Space-separated
+          for more than one.
+        type: string
+        default: p/default
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+    env:
+      SEMGREP_VERSION: 1.184.0
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Scan
+        env:
+          PATHS: ${{ inputs.paths }}
+          CONFIG: ${{ inputs.config }}
+        run: |
+          read -ra paths <<< "$PATHS"
+          configs=()
+          for config in $CONFIG; do
+            configs+=(--config "$config")
+          done
+          # Metrics off: nothing about the code is sent to Semgrep, only the rule download is.
+          pipx run "semgrep==$SEMGREP_VERSION" scan --metrics=off --error "${configs[@]}" "${paths[@]}"

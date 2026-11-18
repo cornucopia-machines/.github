@@ -40,6 +40,68 @@ To scan a repo's whole history locally, e.g. when adding the workflow to an exis
 trufflehog git file://. --results=verified,unknown
 ```
 
+## Static analysis (`semgrep.yml`)
+
+Runs [Semgrep](https://semgrep.dev) Community Edition and fails on any finding. It's free on private
+repos, unlike CodeQL. Before adding it to a repo, run Semgrep there and fix or skip what it finds,
+so the repo starts from zero. Then add this as `.github/workflows/semgrep.yml`:
+
+```yaml
+name: Semgrep
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    uses: cornucopia-machines/.github/.github/workflows/semgrep.yml@main
+    with:
+      paths: src tests
+```
+
+`config` picks the rules: `p/default` (Semgrep's recommended set, for every language it supports)
+unless you name others, e.g. `p/typescript p/nodejs`. To skip a finding that doesn't apply, add a
+`// nosemgrep: <rule-id>` comment (`#` in Python or YAML) on its line, saying why; whole paths go in
+`.semgrepignore`.
+
+To run it locally, with the same version and rules:
+
+```bash
+pipx run semgrep==1.184.0 scan --metrics=off --config p/default src tests
+```
+
+## AI security review (`security-review.yml`)
+
+Runs Anthropic's [claude-code-security-review](https://github.com/anthropics/claude-code-security-review),
+the CI version of Claude Code's `/security-review`, on each pull request's first run. It comments on
+the lines it thinks are vulnerable, and doesn't fail the PR. It needs an Anthropic API key as a repo
+secret; without one (e.g. on Dependabot's PRs) it skips. Add this to a repo as
+`.github/workflows/security-review.yml`:
+
+```yaml
+name: Security review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: cornucopia-machines/.github/.github/workflows/security-review.yml@main
+    secrets:
+      anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
 ## Vulnerability scanning (Grype)
 
 Two parts, because a build only sees an image as it was built, and new vulnerabilities get
@@ -135,9 +197,53 @@ far fewer updates. Each repo's Dependabot checks `github-actions` monthly, group
 cooldown: in practice a PR only when a third-party action released, or GitHub one shipped a new major. Security
 updates come right away regardless.
 
+## Actions lint (`actions-lint.yml`)
+
+Lints a repo's workflows and actions: [actionlint](https://github.com/rhysd/actionlint) for mistakes
+(syntax, expression types, unknown inputs, shellcheck on `run:` scripts), `check-jsonschema` for
+`action.yml` files (actionlint doesn't read them), and [zizmor](https://docs.zizmor.sh) for security
+problems (template injection, over-broad permissions, credentials left in checkouts, risky triggers,
+pinning). Add this to a repo as `.github/workflows/actions-lint.yml`:
+
+```yaml
+name: Actions lint
+
+on:
+  pull_request:
+    paths:
+      - .github/**
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    uses: cornucopia-machines/.github/.github/workflows/actions-lint.yml@main
+```
+
+zizmor uses this repo's [`zizmor.yml`](zizmor.yml), which enforces the pinning rule above. A calling
+repo's own `zizmor.yml` or `.github/zizmor.yml` is merged on top of it rather than replacing it: maps
+merge, with the repo's value winning where both set the same key, and lists such as `ignore` add up.
+So a repo that ignores one file, or disables an audit, keeps the org's pinning policy, and loosening
+that policy takes an explicit entry under `rules.unpinned-uses.config.policies`. The job log shows
+the merged config. To skip a single finding, add a `# zizmor: ignore[<audit>]` comment on its line
+instead, with a comment saying why. actionlint
+reads the calling repo's `.github/actionlint.yaml`, if it has one.
+
+To run the same checks locally:
+
+```bash
+# The ignores drop actionlint's errors on `uses: $/...`, which it doesn't support yet (see the workflow).
+actionlint -ignore '"\$/[^"]*" at "uses" is not following the format' \
+  -ignore 'action "\$/[^"]*" in invalid format because ref is missing'
+curl -fsSL -o /tmp/zizmor.yml https://raw.githubusercontent.com/cornucopia-machines/.github/main/zizmor.yml
+# Only if the repo has its own config: merge it on top, as the workflow does (mikefarah's yq 4).
+yq eval-all --inplace '. as $item ireduce ({}; . *+ $item)' /tmp/zizmor.yml zizmor.yml
+zizmor --config /tmp/zizmor.yml .
+```
+
 ## Linting
 
-Everything here is used by every repo in the org, so the Lint workflow checks each change:
-actionlint for workflows, `check-jsonschema` for `action.yml` files (actionlint doesn't read them),
-shellcheck for the scripts, and [zizmor](https://docs.zizmor.sh) for security issues, configured in
-[`zizmor.yml`](zizmor.yml).
+Everything here is used by every repo in the org, so the Lint workflow checks each change: it runs
+the Actions lint above from the same commit, configured by [`zizmor.yml`](zizmor.yml), and
+shellcheck for the scripts.
