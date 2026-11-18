@@ -207,6 +207,24 @@ on any. Grype doesn't do this.
 Grype and Trivy are installed from releases pinned by checksum in each action's `install.sh`, not
 through the vendors' own actions; Aqua's Trivy action tags were hijacked in 2026.
 
+## Foreseeable work board (`board-bot-items.yml`)
+
+Not shared with other repos: it runs here, every hour and by hand, to put what bots open across the org on the
+[Foreseeable work](https://github.com/orgs/cornucopia-machines/projects/4) project, if it isn't there yet:
+
+- Dependabot's pull requests, in **In review**: they wait for a person's review.
+- The issues our workflows open (the image scans' CVE issues, upgrade reminders), in **Backlog**.
+
+The board's own workflows move them to Done once they're merged or closed. A card that's archived stays archived;
+a card that's deleted comes back within the hour, as long as its issue or pull request is open.
+
+The `GITHUB_TOKEN` can't write to the org's projects, so it uses the "Cornucopia Claude Projects" GitHub App
+(Projects read and write, read access to issues and pull requests): its Client ID in the repo variable
+`PROJECT_APP_CLIENT_ID`, and a private key in the secret `PROJECT_APP_PRIVATE_KEY`. It runs here rather than in
+each repo because this repo is public, so its minutes are free, and because workflows that Dependabot triggers
+only get Dependabot's secrets. To see what it would add without changing the board:
+`DRY_RUN=1 scripts/board-add-bot-items.sh`, with a `gh` that can read the project.
+
 ## Pinning actions
 
 Every repo in the org pins the actions its workflows use by how far we trust who publishes them; zizmor

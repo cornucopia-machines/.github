@@ -24,4 +24,4 @@ jobs:
           persist-credentials: false
 
       - name: Check shell scripts
-        run: shellcheck actions/*/*.sh
+        run: shellcheck actions/*/*.sh scripts/*.sh
