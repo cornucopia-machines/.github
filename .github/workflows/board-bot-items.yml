@@ -26,7 +26,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # The GITHUB_TOKEN can't write to the org's projects. The "Cornucopia Claude Projects" GitHub App can: it has
+      # The GITHUB_TOKEN can't write to the org's projects. The "Claude GitHub Projects MCP" GitHub App can: it has
       # Projects read and write on the org, and read access to issues and pull requests.
       - name: Get a token for the project
         id: token

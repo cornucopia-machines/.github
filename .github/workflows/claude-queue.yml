@@ -40,7 +40,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # The "Cornucopia Claude Projects" GitHub App, as in board-bot-items.yml: the GITHUB_TOKEN can't write to the
+      # The "Claude GitHub Projects MCP" GitHub App, as in board-bot-items.yml: the GITHUB_TOKEN can't write to the
       # org's projects or read other repos.
       - name: Get a token for the project
         id: token

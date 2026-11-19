@@ -248,7 +248,7 @@ Not shared with other repos: it runs here, every hour and by hand, to put what b
 The board's own workflows move them to Done once they're merged or closed. A card that's archived stays archived;
 a card that's deleted comes back within the hour, as long as its issue or pull request is open.
 
-The `GITHUB_TOKEN` can't write to the org's projects, so it uses the "Cornucopia Claude Projects" GitHub App
+The `GITHUB_TOKEN` can't write to the org's projects, so it uses the "Claude GitHub Projects MCP" GitHub App
 (Projects read and write, read access to issues and pull requests): its Client ID in the repo variable
 `PROJECT_APP_CLIENT_ID`, and a private key in the secret `PROJECT_APP_PRIVATE_KEY`. It runs here rather than in
 each repo because this repo is public, so its minutes are free, and because workflows that Dependabot triggers
