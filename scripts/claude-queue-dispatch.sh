@@ -69,6 +69,9 @@ items=$(gh api graphql --paginate -F org="$org" -F number="$project" -f query='
               ... on Issue {
                 number state repository { nameWithOwner } labels(first: 50) { nodes { name } }
                 issueDependenciesSummary { blockedBy }
+                issueFieldValues(first: 20) {
+                  nodes { ... on IssueFieldSingleSelectValue { name field { ... on IssueFieldSingleSelect { name } } } }
+                }
               }
               ... on PullRequest { number state repository { nameWithOwner } }
             }
@@ -88,7 +91,9 @@ items=$(gh api graphql --paginate -F org="$org" -F number="$project" -f query='
     claude: ([.content.labels.nodes[]?.name] | index("claude") != null),
     question: ([.content.labels.nodes[]?.name] | index("question") != null),
     # How many open issues block it (the "Blocked by" relationship on GitHub)
-    blocked_by: (.content.issueDependenciesSummary.blockedBy // 0)
+    blocked_by: (.content.issueDependenciesSummary.blockedBy // 0),
+    # The org-wide Priority issue field
+    priority: ([.content.issueFieldValues.nodes[]? | select(.field.name? == "Priority") | .name] | first)
   }')
 
 set_status() { # $1: item ID, $2: option ID
@@ -287,8 +292,11 @@ while [ "$free" -gt 0 ] && IFS=$'\t' read -r id type repo number blocked_by; do
     failed=1
     break
   fi
-done < <(jq -r 'select(.status == "Claude queue" and (.type != "ISSUE" or .state == "OPEN"))
-  | [.id, .type, (.repo // "-"), (.number // "-"), .blocked_by] | @tsv' <<< "$items")
+# Highest priority first; items without one count as Medium. Within a priority, in the queue's order on the board
+# (sort_by keeps it).
+done < <(jq -rs 'map(select(.status == "Claude queue" and (.type != "ISSUE" or .state == "OPEN")))
+  | sort_by({"Urgent": 0, "High": 1, "Medium": 2, "Low": 3}[.priority // "Medium"] // 2)
+  | .[] | [.id, .type, (.repo // "-"), (.number // "-"), .blocked_by] | @tsv' <<< "$items")
 if [ "$free" -le 0 ]; then
   echo "WIP limit reached" >> "$summary"
 fi

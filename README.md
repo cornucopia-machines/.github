@@ -263,7 +263,9 @@ hand, it starts the "GitHub Claude queue worker" routine, Claude's worker, for t
 
 - **New items:** while fewer than `CLAUDE_QUEUE_WIP_LIMIT` (a repo variable, 3 if it isn't set) of Claude's open
   issues (`claude` label) are In progress or In review, not counting the ones waiting for an answer (`question`
-  label), it takes the next issue in Claude queue, moves it to In progress, and starts a run for it. Closed issues in
+  label), it takes the next issue in Claude queue, moves it to In progress, and starts a run for it. Next means the
+  highest Priority (the org's issue field: Urgent, High, Medium, Low; none counts as Medium), and within that, the
+  topmost on the board. Closed issues in
   the queue go to Done; issues from repos the routine doesn't check out stay in the queue, and so do issues blocked by
   an open issue (GitHub's "Blocked by" relationship) until those are closed.
 - **Follow-ups:** for each of Claude's open issues (`claude` label) in In progress or In review, it starts a run when
