@@ -109,7 +109,9 @@ fire() {
     -H 'anthropic-version: 2023-06-01' \
     -H 'anthropic-beta: experimental-cc-routine-2026-04-01' \
     -H 'content-type: application/json' \
-    -d "$body" | jq -r .claude_code_session_url
+    -d "$body" | jq -r .claude_code_session_url |
+    # The link comes back with the session's cse_ ID, which claude.ai doesn't open; its session_ form does
+    sed 's|/code/cse_|/code/session_|'
 }
 
 can_reach() {
