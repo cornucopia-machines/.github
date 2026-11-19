@@ -8,8 +8,9 @@ name: Claude queue
 
 on:
   schedule:
-    # Every 15 minutes in working hours (UTC), like the routine's own schedule was
-    - cron: "*/15 6-18 * * 1-5"
+    # Every 15 minutes in working hours (UTC), off the round minutes: GitHub delays or drops scheduled runs at busy
+    # times such as the top of the hour
+    - cron: "7-59/15 6-18 * * 1-5"
   workflow_dispatch:
     inputs:
       dry-run:
