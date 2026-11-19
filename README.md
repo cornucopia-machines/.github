@@ -248,12 +248,36 @@ Not shared with other repos: it runs here, every hour and by hand, to put what b
 The board's own workflows move them to Done once they're merged or closed. A card that's archived stays archived;
 a card that's deleted comes back within the hour, as long as its issue or pull request is open.
 
-The `GITHUB_TOKEN` can't write to the org's projects, so it uses the "Cornucopia Claude Projects" GitHub App
+The `GITHUB_TOKEN` can't write to the org's projects, so it uses the "Claude GitHub Projects MCP" GitHub App
 (Projects read and write, read access to issues and pull requests): its Client ID in the repo variable
 `PROJECT_APP_CLIENT_ID`, and a private key in the secret `PROJECT_APP_PRIVATE_KEY`. It runs here rather than in
 each repo because this repo is public, so its minutes are free, and because workflows that Dependabot triggers
 only get Dependabot's secrets. To see what it would add without changing the board:
 `DRY_RUN=1 scripts/board-add-bot-items.sh`, with a `gh` that can read the project.
+
+## Claude queue dispatcher (`claude-queue.yml`)
+
+Not shared with other repos either: every 15 minutes in working hours (Monday to Friday, 6:00 to 19:00 UTC) and by
+hand, it starts the "Foreseeable work: Claude queue" routine, Claude's worker, for the
+[Foreseeable work](https://github.com/orgs/cornucopia-machines/projects/4) project:
+
+- **New items:** while fewer than `CLAUDE_QUEUE_WIP_LIMIT` (a repo variable, 3 if it isn't set) of Claude's open issues (`claude` label) are In progress or In review, it takes the next issue in Claude
+  queue, moves it to In progress, and starts a run for it. Closed issues in the queue go to Done; issues from repos
+  the routine doesn't check out stay in the queue.
+- **Follow-ups:** for each of Claude's open issues (`claude` label) in In progress or In review, it starts a run when
+  something happened since the worker last edited its tracking comment: a review or comment on one of its PRs, failed
+  CI, a merge conflict after the base branch moved, one of its PRs merged or closed, a new comment on the issue, or
+  3 hours In progress with no open PR.
+
+Each run gets the issue in its payload (`take <repo>#<n>`, or `follow up <repo>#<n>` with the reasons), so the
+routine has no schedule of its own. Checking the board this way costs no Claude usage, unlike a scheduled routine,
+which also couldn't run more than hourly.
+
+It uses the same GitHub App as the board workflow above, which also needs Checks, Commit statuses and Contents read
+access for the PRs' CI results. The routine's API trigger token is in the secret `CLAUDE_QUEUE_FIRE_TOKEN`: it can
+only start that routine. To see what it would do without changing anything, run it with **dry-run** checked, or
+`DRY_RUN=1 ROUTINE_ID=… WORKER_REPOS='…' scripts/claude-queue-dispatch.sh` with a `gh` that can read the project.
+Pull requests that change it do a dry run.
 
 ## Pinning actions
 
