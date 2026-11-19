@@ -246,8 +246,10 @@ done < <(jq -r 'select(.type == "ISSUE" and .state == "OPEN" and .claude
   and (.status == "In progress" or .status == "In review"))
   | [.repo, .number, .status, .status_at] | @tsv' <<< "$items")
 
-# New items, up to the WIP limit. Every open issue in In progress or In review counts, not the cards of PRs.
-wip=$(jq -s '[.[] | select(.type == "ISSUE" and .state == "OPEN"
+# New items, up to the WIP limit. Only Claude's own issues count (`claude` label), not the cards of its PRs, nor what
+# a person is working on. An item this script claimed gets the label within a minute or two of its run starting, well
+# before the next dispatch.
+wip=$(jq -s '[.[] | select(.type == "ISSUE" and .state == "OPEN" and .claude
   and (.status == "In progress" or .status == "In review"))] | length' <<< "$items")
 free=$((wip_limit - wip))
 echo "In progress or In review: $wip of $wip_limit"
