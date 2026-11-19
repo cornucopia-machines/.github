@@ -1,0 +1,79 @@
+# Starts Claude's worker routine for the "Foreseeable work" project's Claude queue: fills the free WIP slots from the
+# queue, and follows up on Claude's items that have something new (reviews, comments, failed CI, a merge conflict).
+# See README.md, "Claude queue dispatcher".
+#
+# A script rather than a scheduled routine: a routine can't run more often than hourly, and checking the board this
+# way costs no Claude usage. This repo is public, so its minutes are free.
+name: Claude queue
+
+on:
+  schedule:
+    # Every 15 minutes in working hours (UTC), like the routine's own schedule was
+    - cron: "*/15 6-18 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Only say what it would do
+        type: boolean
+        default: false
+  # A dry run against the live board when the dispatcher changes
+  pull_request:
+    paths:
+      - .github/workflows/claude-queue.yml
+      - scripts/claude-queue-dispatch.sh
+
+permissions: {}
+
+concurrency:
+  group: claude-queue
+
+jobs:
+  dispatch:
+    name: Dispatch
+    # Pull requests from forks get no secrets
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # The "Cornucopia Claude Projects" GitHub App, as in board-bot-items.yml: the GITHUB_TOKEN can't write to the
+      # org's projects or read other repos.
+      - name: Get a token for the project
+        id: token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.PROJECT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PROJECT_APP_PRIVATE_KEY }}
+          # Every repo the app is installed on: Claude's items can be in any of them, and only reading them is allowed
+          owner: ${{ github.repository_owner }} # zizmor: ignore[github-app]
+          permission-organization-projects: write
+          permission-issues: read
+          permission-pull-requests: read
+          # A PR's CI results
+          permission-checks: read
+          permission-statuses: read
+          # The base branch's latest commit, to tell a new merge conflict from an old one
+          permission-contents: read
+
+      - name: Dispatch
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          FIRE_TOKEN: ${{ secrets.CLAUDE_QUEUE_FIRE_TOKEN }}
+          ORG: ${{ github.repository_owner }}
+          DRY_RUN: ${{ (github.event_name == 'pull_request' || inputs.dry-run) && '1' || '' }}
+          # The "Foreseeable work: Claude queue" routine, and the repos it checks out (keep them in step with the
+          # routine's): items from other repos stay in the queue.
+          ROUTINE_ID: trig_012eN573T3sfs8nVp8nDkpPZ
+          WORKER_REPOS: >-
+            cornucopia-machines/infrastructure
+            cornucopia-machines/cornucopia-app
+            cornucopia-machines/ugly-duckling-firmware
+            cornucopia-machines/spadefoot-toad-firmware
+            cornucopia-machines/desert-lark-coverage-logger
+            cornucopia-machines/claude-plugins
+            cornucopia-machines/.github
+        run: scripts/claude-queue-dispatch.sh
