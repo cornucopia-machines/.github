@@ -261,7 +261,7 @@ Not shared with other repos either: every 15 minutes in working hours (Monday to
 hand, it starts the "Foreseeable work: Claude queue" routine, Claude's worker, for the
 [Foreseeable work](https://github.com/orgs/cornucopia-machines/projects/4) project:
 
-- **New items:** while fewer than 3 of Claude's open issues (`claude` label) are In progress or In review, it takes the next issue in Claude
+- **New items:** while fewer than `CLAUDE_QUEUE_WIP_LIMIT` (a repo variable, 3 if it isn't set) of Claude's open issues (`claude` label) are In progress or In review, it takes the next issue in Claude
   queue, moves it to In progress, and starts a run for it. Closed issues in the queue go to Done; issues from repos
   the routine doesn't check out stay in the queue.
 - **Follow-ups:** for each of Claude's open issues (`claude` label) in In progress or In review, it starts a run when
