@@ -32,13 +32,4 @@ runs:
         PATHS: ${{ inputs.paths }}
         SEVERITY: ${{ inputs.severity }}
         IGNOREFILE: ${{ inputs.ignorefile }}
-      run: |
-        ignore_args=()
-        [ -f "$IGNOREFILE" ] && ignore_args=(--ignorefile "$IGNOREFILE")
-        status=0
-        while IFS= read -r path; do
-          path=$(echo "$path" | xargs)
-          [ -z "$path" ] && continue
-          trivy config --quiet --severity "$SEVERITY" ${ignore_args[@]+"${ignore_args[@]}"} --exit-code 1 "$path" || status=1
-        done <<< "$PATHS"
-        exit "$status"
+      run: '"$GITHUB_ACTION_PATH/check.sh"'

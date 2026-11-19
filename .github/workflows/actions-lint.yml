@@ -3,6 +3,8 @@
 # - actionlint for mistakes in workflows: syntax, expression types, unknown inputs, and shellcheck on
 #   `run:` scripts. It reads the caller's `.github/actionlint.yaml` if there is one.
 # - check-jsonschema for `action.yml` files, which actionlint doesn't read.
+# - shellcheck for the repo's shell scripts, which actionlint doesn't read either: it only checks
+#   `run:` blocks, so a script passed to an action as an input, or kept in a file, goes unchecked.
 # - zizmor for security problems: template injection, over-broad permissions, credentials left in
 #   checkouts, risky triggers, and actions not pinned the way the org pins them.
 #
@@ -11,7 +13,7 @@
 # Suppress a single finding where it is with a `# zizmor: ignore[<audit>]` comment saying why.
 #
 # Call it from each repo with a small workflow (see README.md), on pull requests that touch
-# `.github/`.
+# `.github/` or a shell script.
 name: Actions lint
 
 on:
@@ -70,6 +72,29 @@ jobs:
             exit 0
           fi
           pipx run "check-jsonschema==$CHECK_JSONSCHEMA_VERSION" --builtin-schema vendor.github-actions "${actions[@]}"
+
+      # Every tracked `*.sh` file, and every other file whose shebang names a shell, such as a script
+      # installed without an extension. Symlinks and submodules are skipped: their targets are checked
+      # where they live. shellcheck is preinstalled on GitHub's Ubuntu runners, and reads the caller's
+      # `.shellcheckrc` if there is one.
+      - name: Check shell scripts
+        run: |
+          shebang='^#!.*[/ ](ba|da|k)?sh([[:space:]]|$)'
+          scripts=()
+          while IFS= read -r -d '' file; do
+            [ -f "$file" ] && [ ! -L "$file" ] || continue
+            first=
+            IFS= read -r first < "$file" || true
+            if [[ "$file" == *.sh || "$first" =~ $shebang ]]; then
+              scripts+=("$file")
+            fi
+          done < <(git ls-files -z)
+          if [ "${#scripts[@]}" -eq 0 ]; then
+            echo "No shell scripts to check."
+            exit 0
+          fi
+          printf 'Checking %s\n' "${scripts[@]}"
+          shellcheck "${scripts[@]}"
 
       # The org's config is taken from main, like the shared actions (`@main`), except in this repo,
       # where a PR's own version is the one to test. A repo's own config is merged on top of it
