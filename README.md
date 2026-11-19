@@ -264,7 +264,8 @@ hand, it starts the "GitHub Claude queue worker" routine, Claude's worker, for t
 - **New items:** while fewer than `CLAUDE_QUEUE_WIP_LIMIT` (a repo variable, 3 if it isn't set) of Claude's open
   issues (`claude` label) are In progress or In review, not counting the ones waiting for an answer (`question`
   label), it takes the next issue in Claude queue, moves it to In progress, and starts a run for it. Closed issues in
-  the queue go to Done; issues from repos the routine doesn't check out stay in the queue.
+  the queue go to Done; issues from repos the routine doesn't check out stay in the queue, and so do issues blocked by
+  an open issue (GitHub's "Blocked by" relationship) until those are closed.
 - **Follow-ups:** for each of Claude's open issues (`claude` label) in In progress or In review, it starts a run when
   something happened since the worker last edited its tracking comment: a review or comment on one of its PRs, failed
   CI, a merge conflict after the base branch moved, one of its PRs merged or closed, a new comment on the issue (such as
