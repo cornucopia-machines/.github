@@ -4,13 +4,12 @@
 #
 # A script rather than a scheduled routine: a routine can't run more often than hourly, and checking the board this
 # way costs no Claude usage. This repo is public, so its minutes are free.
+#
+# No schedule of its own: GitHub's scheduled runs barely fire in this repo. The Claude queue trigger Worker
+# (claude-queue-trigger/) starts it through workflow_dispatch, on the org's webhook events and hourly.
 name: Claude queue
 
 on:
-  schedule:
-    # Every 15 minutes in working hours (UTC), off the round minutes: GitHub delays or drops scheduled runs at busy
-    # times such as the top of the hour
-    - cron: "7-59/15 6-18 * * 1-5"
   workflow_dispatch:
     inputs:
       dry-run:
@@ -65,6 +64,8 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           FIRE_TOKEN: ${{ secrets.CLAUDE_QUEUE_FIRE_TOKEN }}
           ORG: ${{ github.repository_owner }}
+          # The board, as the trigger Worker's BOARDS lists it (claude-queue-trigger/wrangler.jsonc)
+          PROJECT_NUMBER: 4
           DRY_RUN: ${{ (github.event_name == 'pull_request' || inputs.dry-run) && '1' || '' }}
           # How many of Claude's issues can be In progress or In review at once
           WIP_LIMIT: ${{ vars.CLAUDE_QUEUE_WIP_LIMIT || '3' }}

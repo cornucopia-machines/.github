@@ -257,9 +257,9 @@ only get Dependabot's secrets. To see what it would add without changing the boa
 
 ## Claude queue dispatcher (`claude-queue.yml`)
 
-Not shared with other repos either: every 15 minutes in working hours (Monday to Friday, 6:00 to 19:00 UTC) and by
-hand, it starts the "GitHub Claude queue worker" routine, Claude's worker, for the
-[Next Up](https://github.com/orgs/cornucopia-machines/projects/4) project:
+Not shared with other repos either: whenever the [Claude queue trigger](#claude-queue-trigger-claude-queue-trigger)
+starts it (on the org's webhook events, and hourly in working hours) and by hand, it starts the "GitHub Claude queue
+worker" routine, Claude's worker, for the [Next Up](https://github.com/orgs/cornucopia-machines/projects/4) project:
 
 - **New items:** while fewer than `CLAUDE_QUEUE_WIP_LIMIT` (a repo variable, 3 if it isn't set) of Claude's open
   issues (`claude` label) are In progress or In review, not counting the ones waiting for an answer (`question`
@@ -280,6 +280,42 @@ access for the PRs' CI results. The routine's API trigger token is in the secret
 only start that routine. To see what it would do without changing anything, run it with **dry-run** checked, or
 `DRY_RUN=1 ROUTINE_ID=… WORKER_REPOS='…' scripts/claude-queue-dispatch.sh` with a `gh` that can read the project.
 Pull requests that change it do a dry run.
+
+## Claude queue trigger (`claude-queue-trigger/`)
+
+A Cloudflare Worker that starts the Claude queue dispatcher above through `workflow_dispatch`, so a card dragged into
+Claude queue, or an answer to a question, starts a run within a minute. GitHub's own schedules barely run in this
+repo, so the dispatcher workflow has none: the Worker starts it
+
+- **on the org's webhook events** that concern a board: an item moved to Claude queue, one leaving In progress or In
+  review (a slot frees up), and anything on an issue or PR with the `claude` label, except the worker's own comments
+  and its pushes (their CI result comes as a `check_suite` event, which counts when it fails on a `claude/` branch);
+- **hourly in working hours** (Monday to Friday, 6:00 to 19:00 UTC), from a Cron Trigger: the fallback for what no
+  event announces, such as a run that died, an issue that's no longer blocked, or a lost delivery.
+
+It only filters events: what to start is still the dispatcher's call, from the board's state. A Durable Object per
+board starts at most one dispatch per 30 seconds: the first event in a while dispatches right away, and the ones in
+the next 30 seconds share one more after them, since the run already started may have read the board before them.
+
+Each board it serves is an entry in `BOARDS` in [`wrangler.jsonc`](claude-queue-trigger/wrangler.jsonc): its project
+number and its dispatcher workflow. Project item events only start their own board's dispatcher; issue and PR events
+don't say which board their item is on, so they start every board's. A dispatch that finds nothing new starts no run.
+
+[`claude-queue-trigger.yml`](.github/workflows/claude-queue-trigger.yml) runs its tests (`npm test`) on pull requests,
+and deploys it with Wrangler from `main`. Setting it up, once:
+
+1. **Cloudflare:** an API token with the "Edit Cloudflare Workers" template's permissions, in this repo's secret
+   `CLOUDFLARE_API_TOKEN`, and the account ID in the repo variable `CLOUDFLARE_ACCOUNT_ID`, as in cornucopia-app.
+   Merging (or running the workflow by hand) deploys the Worker to
+   `https://claude-queue-trigger.<account subdomain>.workers.dev`.
+2. **The Worker's secrets**, from `claude-queue-trigger/` after `npm ci`, with `npx wrangler secret put <name>`:
+   - `WEBHOOK_SECRET`: a random string (`openssl rand -hex 32`), also given to the webhook below;
+   - `DISPATCH_TOKEN`: a fine-grained personal access token for the org, with access to every board's dispatcher repo
+     (this one) and only Actions: read and write.
+3. **The org webhook** (org Settings → Webhooks): the Worker's URL, content type `application/json`, the
+   `WEBHOOK_SECRET`, and these events: Projects v2 items, Issues, Issue comments, Pull requests, Pull request reviews,
+   Pull request review comments, Check suites. Its Recent Deliveries tab shows what the Worker answered for each
+   (`Dispatching for project 4`, or `Ignored`); `npx wrangler tail` shows the dispatches.
 
 ## Pinning actions
 

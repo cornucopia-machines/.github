@@ -1,0 +1,35 @@
+// The Claude queue trigger Worker. See README.md, "Claude queue trigger". Deployed by
+// .github/workflows/claude-queue-trigger.yml; its secrets (WEBHOOK_SECRET, DISPATCH_TOKEN) are set with
+// `npx wrangler secret put`, so they never pass through GitHub.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "claude-queue-trigger",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-01",
+  // The org webhook's URL: https://claude-queue-trigger.<account subdomain>.workers.dev
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "triggers": {
+    // The fallback for what no webhook event announces: a run that died, a lost delivery. GitHub's own schedules
+    // barely run in this repo. Hourly in working hours (UTC), like the dispatcher's old schedule; the webhook starts
+    // runs at any time.
+    "crons": ["7 6-18 * * MON-FRI"]
+  },
+  "vars": {
+    // The boards this Worker serves: each board's project number, and its dispatcher workflow, which the
+    // DISPATCH_TOKEN must be able to run
+    "BOARDS": [
+      {
+        "project": 4,
+        "repo": "cornucopia-machines/.github",
+        "workflow": "claude-queue.yml",
+        "ref": "main"
+      }
+    ]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "DEBOUNCER", "class_name": "Debouncer" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Debouncer"] }]
+}

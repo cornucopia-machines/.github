@@ -19,3 +19,15 @@ updates:
       github-actions:
         patterns:
           - '*'
+
+  # The Claude queue trigger Worker's Wrangler, which deploys it
+  - package-ecosystem: npm
+    directory: /claude-queue-trigger
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      npm:
+        patterns:
+          - '*'

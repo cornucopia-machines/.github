@@ -1,0 +1,73 @@
+# Tests the Claude queue trigger Worker (claude-queue-trigger/), and deploys it to Cloudflare from main. See
+# README.md, "Claude queue trigger".
+name: Claude queue trigger
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/claude-queue-trigger.yml
+      - claude-queue-trigger/**
+  pull_request:
+    paths:
+      - .github/workflows/claude-queue-trigger.yml
+      - claude-queue-trigger/**
+  workflow_dispatch:
+
+permissions: {}
+
+defaults:
+  run:
+    working-directory: claude-queue-trigger
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - run: npm test
+
+      # Bundles the Worker and checks its config, without credentials or uploading anything
+      - name: Check the Worker builds
+        run: npm run check
+
+  deploy:
+    name: Deploy
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: claude-queue-trigger-deploy
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # From the lockfile, without a cache: this ships (README.md, "Caches")
+      - run: npm ci
+
+      # The Worker's own secrets (WEBHOOK_SECRET, DISPATCH_TOKEN) stay as they are: they're set with
+      # `wrangler secret put`, not from here
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run deploy
