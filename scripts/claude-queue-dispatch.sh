@@ -82,7 +82,8 @@ items=$(gh api graphql --paginate -F org="$org" -F number="$project" -f query='
     repo: .content.repository.nameWithOwner,
     number: .content.number,
     state: .content.state,
-    claude: ([.content.labels.nodes[]?.name] | index("claude") != null)
+    claude: ([.content.labels.nodes[]?.name] | index("claude") != null),
+    question: ([.content.labels.nodes[]?.name] | index("question") != null)
   }')
 
 set_status() { # $1: item ID, $2: option ID
@@ -249,9 +250,9 @@ done < <(jq -r 'select(.type == "ISSUE" and .state == "OPEN" and .claude
   | [.repo, .number, .status, .status_at] | @tsv' <<< "$items")
 
 # New items, up to the WIP limit. Only Claude's own issues count (`claude` label), not the cards of its PRs, nor what
-# a person is working on. An item this script claimed gets the label within a minute or two of its run starting, well
-# before the next dispatch.
-wip=$(jq -s '[.[] | select(.type == "ISSUE" and .state == "OPEN" and .claude
+# a person is working on, nor the ones waiting for a person's answer (`question` label). An item this script claimed
+# gets the label within a minute or two of its run starting, well before the next dispatch.
+wip=$(jq -s '[.[] | select(.type == "ISSUE" and .state == "OPEN" and .claude and (.question | not)
   and (.status == "In progress" or .status == "In review"))] | length' <<< "$items")
 free=$((wip_limit - wip))
 echo "In progress or In review: $wip of $wip_limit"
