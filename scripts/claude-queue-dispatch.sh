@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts Claude's worker routine for the "Foreseeable work" project's Claude queue: one run per free slot under the
+# Starts Claude's worker routine for the "Next Up" project's Claude queue: one run per free slot under the
 # WIP limit, each for the next item in the queue, and one run for each of Claude's items that has something new to
 # follow up. Run by .github/workflows/claude-queue.yml; see README.md, "Claude queue dispatcher".
 #

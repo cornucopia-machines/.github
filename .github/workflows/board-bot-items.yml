@@ -1,5 +1,5 @@
-# Puts what bots open across the org on the "Foreseeable work" project: Dependabot's pull requests in In review, and
-# the issues our workflows open in Backlog. See README.md, "Foreseeable work board".
+# Puts what bots open across the org on the "Next Up" project: Dependabot's pull requests in In review, and
+# the issues our workflows open in Backlog. See README.md, "Next Up board".
 #
 # One scheduled run here instead of a step in every repo: a project token in each repo would be needed otherwise,
 # and workflows Dependabot triggers only get Dependabot's own secrets. This repo is public, so its minutes are free.

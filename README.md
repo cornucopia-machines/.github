@@ -237,10 +237,10 @@ on any. Grype doesn't do this.
 Grype and Trivy are installed from releases pinned by checksum in each action's `install.sh`, not
 through the vendors' own actions; Aqua's Trivy action tags were hijacked in 2026.
 
-## Foreseeable work board (`board-bot-items.yml`)
+## Next Up board (`board-bot-items.yml`)
 
 Not shared with other repos: it runs here, every hour and by hand, to put what bots open across the org on the
-[Foreseeable work](https://github.com/orgs/cornucopia-machines/projects/4) project, if it isn't there yet:
+[Next Up](https://github.com/orgs/cornucopia-machines/projects/4) project, if it isn't there yet:
 
 - Dependabot's pull requests, in **In review**: they wait for a person's review.
 - The issues our workflows open (the image scans' CVE issues, upgrade reminders), in **Backlog**.
@@ -259,7 +259,7 @@ only get Dependabot's secrets. To see what it would add without changing the boa
 
 Not shared with other repos either: every 15 minutes in working hours (Monday to Friday, 6:00 to 19:00 UTC) and by
 hand, it starts the "GitHub Claude queue worker" routine, Claude's worker, for the
-[Foreseeable work](https://github.com/orgs/cornucopia-machines/projects/4) project:
+[Next Up](https://github.com/orgs/cornucopia-machines/projects/4) project:
 
 - **New items:** while fewer than `CLAUDE_QUEUE_WIP_LIMIT` (a repo variable, 3 if it isn't set) of Claude's open
   issues (`claude` label) are In progress or In review, not counting the ones waiting for an answer (`question`

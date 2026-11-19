@@ -1,4 +1,4 @@
-# Starts Claude's worker routine for the "Foreseeable work" project's Claude queue: fills the free WIP slots from the
+# Starts Claude's worker routine for the "Next Up" project's Claude queue: fills the free WIP slots from the
 # queue, and follows up on Claude's items that have something new (reviews, comments, failed CI, a merge conflict).
 # See README.md, "Claude queue dispatcher".
 #

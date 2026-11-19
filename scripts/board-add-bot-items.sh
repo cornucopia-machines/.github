@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Adds what bots open across the org to the "Foreseeable work" project, if it isn't on it yet: Dependabot's pull
+# Adds what bots open across the org to the "Next Up" project, if it isn't on it yet: Dependabot's pull
 # requests to In review (they wait for a person's review), and the issues our workflows open (CVE issues, upgrade
-# reminders) to Backlog. Run by .github/workflows/board-bot-items.yml; see README.md, "Foreseeable work board".
+# reminders) to Backlog. Run by .github/workflows/board-bot-items.yml; see README.md, "Next Up board".
 #
 # Needs GH_TOKEN with read access to the org's issues and pull requests, and write access to its projects. With
 # DRY_RUN set, it only lists what it would add.
