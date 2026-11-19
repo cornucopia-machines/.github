@@ -261,13 +261,14 @@ Not shared with other repos either: every 15 minutes in working hours (Monday to
 hand, it starts the "GitHub Claude queue worker" routine, Claude's worker, for the
 [Foreseeable work](https://github.com/orgs/cornucopia-machines/projects/4) project:
 
-- **New items:** while fewer than `CLAUDE_QUEUE_WIP_LIMIT` (a repo variable, 3 if it isn't set) of Claude's open issues (`claude` label) are In progress or In review, it takes the next issue in Claude
-  queue, moves it to In progress, and starts a run for it. Closed issues in the queue go to Done; issues from repos
-  the routine doesn't check out stay in the queue.
+- **New items:** while fewer than `CLAUDE_QUEUE_WIP_LIMIT` (a repo variable, 3 if it isn't set) of Claude's open
+  issues (`claude` label) are In progress or In review, not counting the ones waiting for an answer (`question`
+  label), it takes the next issue in Claude queue, moves it to In progress, and starts a run for it. Closed issues in
+  the queue go to Done; issues from repos the routine doesn't check out stay in the queue.
 - **Follow-ups:** for each of Claude's open issues (`claude` label) in In progress or In review, it starts a run when
   something happened since the worker last edited its tracking comment: a review or comment on one of its PRs, failed
-  CI, a merge conflict after the base branch moved, one of its PRs merged or closed, a new comment on the issue, or
-  3 hours In progress with no open PR.
+  CI, a merge conflict after the base branch moved, one of its PRs merged or closed, a new comment on the issue (such as
+  the answer to a question Claude asked), or 3 hours In progress with no open PR.
 
 Each run gets the issue in its payload (`take <repo>#<n>`, or `follow up <repo>#<n>` with the reasons), so the
 routine has no schedule of its own. Checking the board this way costs no Claude usage, unlike a scheduled routine,
