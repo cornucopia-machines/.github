@@ -66,7 +66,10 @@ items=$(gh api graphql --paginate -F org="$org" -F number="$project" -f query='
               ... on ProjectV2ItemFieldSingleSelectValue { name updatedAt }
             }
             content {
-              ... on Issue { number state repository { nameWithOwner } labels(first: 50) { nodes { name } } }
+              ... on Issue {
+                number state repository { nameWithOwner } labels(first: 50) { nodes { name } }
+                issueDependenciesSummary { blockedBy }
+              }
               ... on PullRequest { number state repository { nameWithOwner } }
             }
           }
@@ -83,7 +86,9 @@ items=$(gh api graphql --paginate -F org="$org" -F number="$project" -f query='
     number: .content.number,
     state: .content.state,
     claude: ([.content.labels.nodes[]?.name] | index("claude") != null),
-    question: ([.content.labels.nodes[]?.name] | index("question") != null)
+    question: ([.content.labels.nodes[]?.name] | index("question") != null),
+    # How many open issues block it (the "Blocked by" relationship on GitHub)
+    blocked_by: (.content.issueDependenciesSummary.blockedBy // 0)
   }')
 
 set_status() { # $1: item ID, $2: option ID
@@ -256,10 +261,15 @@ wip=$(jq -s '[.[] | select(.type == "ISSUE" and .state == "OPEN" and .claude and
   and (.status == "In progress" or .status == "In review"))] | length' <<< "$items")
 free=$((wip_limit - wip))
 echo "In progress or In review: $wip of $wip_limit"
-while [ "$free" -gt 0 ] && IFS=$'\t' read -r id type repo number; do
+while [ "$free" -gt 0 ] && IFS=$'\t' read -r id type repo number blocked_by; do
   ref="$repo#$number"
   if [ "$type" != ISSUE ]; then
     say "Skipped a $type item in the queue: only issues can be taken"
+    continue
+  fi
+  # It stays in the queue, and is taken once its blockers are closed
+  if [ "$blocked_by" -gt 0 ]; then
+    say "Skipped $ref: blocked by $blocked_by open issue(s)"
     continue
   fi
   if ! can_reach "$repo"; then
@@ -278,7 +288,7 @@ while [ "$free" -gt 0 ] && IFS=$'\t' read -r id type repo number; do
     break
   fi
 done < <(jq -r 'select(.status == "Claude queue" and (.type != "ISSUE" or .state == "OPEN"))
-  | [.id, .type, (.repo // "-"), (.number // "-")] | @tsv' <<< "$items")
+  | [.id, .type, (.repo // "-"), (.number // "-"), .blocked_by] | @tsv' <<< "$items")
 if [ "$free" -le 0 ]; then
   echo "WIP limit reached" >> "$summary"
 fi
