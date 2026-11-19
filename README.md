@@ -287,9 +287,12 @@ the lockfile and doesn't restore a cache.** Test, lint and PR builds can cache f
 
 Lints a repo's workflows and actions: [actionlint](https://github.com/rhysd/actionlint) for mistakes
 (syntax, expression types, unknown inputs, shellcheck on `run:` scripts), `check-jsonschema` for
-`action.yml` files (actionlint doesn't read them), and [zizmor](https://docs.zizmor.sh) for security
+`action.yml` files (actionlint doesn't read them), [zizmor](https://docs.zizmor.sh) for security
 problems (template injection, over-broad permissions, credentials left in checkouts, risky triggers,
-pinning). Add this to a repo as `.github/workflows/actions-lint.yml`:
+pinning), and [shellcheck](https://www.shellcheck.net) for the repo's shell scripts: every tracked
+`*.sh` file, and every other file whose shebang names a shell. Add this to a repo as
+`.github/workflows/actions-lint.yml`, with a path for each place outside `.github/` that has scripts
+without a `.sh` extension:
 
 ```yaml
 name: Actions lint
@@ -298,6 +301,7 @@ on:
   pull_request:
     paths:
       - .github/**
+      - '**.sh'
 
 permissions:
   contents: read
@@ -314,11 +318,32 @@ So a repo that ignores one file, or disables an audit, keeps the org's pinning p
 that policy takes an explicit entry under `rules.unpinned-uses.config.policies`. The job log shows
 the merged config. To skip a single finding, add a `# zizmor: ignore[<audit>]` comment on its line
 instead, with a comment saying why. actionlint
-reads the calling repo's `.github/actionlint.yaml`, if it has one.
+reads the calling repo's `.github/actionlint.yaml`, if it has one, and shellcheck its
+`.shellcheckrc`.
+
+### Scripts in workflows
+
+Keep anything more than short glue out of workflow YAML, in script files (`.github/scripts/`, or
+`tools/` where a repo has one) that the workflow runs:
+
+- **Every script passed to an action as an input**, such as the `command:` of
+  `espressif/esp-idf-ci-action` or `cloudflare/wrangler-action`, however short. actionlint can't see
+  into it, and the action may wrap it in more shell: esp-idf-ci-action runs it inside `bash -c '…'`,
+  so a single quote in the script ends that string, and the rest is expanded by the runner's shell
+  ([ugly-duckling-firmware#756](https://github.com/cornucopia-machines/ugly-duckling-firmware/pull/756)).
+  Passing the script's path leaves nothing to quote.
+- **`run:` blocks with real logic**: loops, conditionals, pipelines that do more than one thing, or
+  more than about five lines. A single command, or a line like `echo "x=y" >> "$GITHUB_OUTPUT"`,
+  can stay inline.
+
+A script in a file can be run locally the way CI runs it, and shellcheck checks it. Pass it inputs
+as arguments or environment variables, never through `${{ }}` inside the script. This repo's
+actions follow the same pattern (`scan.sh`, `sync.sh`, `check.sh`, …).
 
 To run the same checks locally:
 
 ```bash
+shellcheck $(git ls-files '*.sh')
 # The ignores drop actionlint's errors on `uses: $/...`, which it doesn't support yet (see the workflow).
 actionlint -ignore '"\$/[^"]*" at "uses" is not following the format' \
   -ignore 'action "\$/[^"]*" in invalid format because ref is missing'
@@ -331,5 +356,5 @@ zizmor --config /tmp/zizmor.yml .
 ## Linting
 
 Everything here is used by every repo in the org, so the Lint workflow checks each change: it runs
-the Actions lint above from the same commit, configured by [`zizmor.yml`](zizmor.yml), and
-shellcheck for the scripts.
+the Actions lint above from the same commit, configured by [`zizmor.yml`](zizmor.yml), which also
+shellchecks the scripts.
