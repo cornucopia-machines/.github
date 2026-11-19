@@ -258,7 +258,7 @@ only get Dependabot's secrets. To see what it would add without changing the boa
 ## Claude queue dispatcher (`claude-queue.yml`)
 
 Not shared with other repos either: every 15 minutes in working hours (Monday to Friday, 6:00 to 19:00 UTC) and by
-hand, it starts the "Foreseeable work: Claude queue" routine, Claude's worker, for the
+hand, it starts the "GitHub Claude queue worker" routine, Claude's worker, for the
 [Foreseeable work](https://github.com/orgs/cornucopia-machines/projects/4) project:
 
 - **New items:** while fewer than `CLAUDE_QUEUE_WIP_LIMIT` (a repo variable, 3 if it isn't set) of Claude's open issues (`claude` label) are In progress or In review, it takes the next issue in Claude

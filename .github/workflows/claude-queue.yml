@@ -67,7 +67,7 @@ jobs:
           DRY_RUN: ${{ (github.event_name == 'pull_request' || inputs.dry-run) && '1' || '' }}
           # How many of Claude's issues can be In progress or In review at once
           WIP_LIMIT: ${{ vars.CLAUDE_QUEUE_WIP_LIMIT || '3' }}
-          # The "Foreseeable work: Claude queue" routine, and the repos it checks out (keep them in step with the
+          # The "GitHub Claude queue worker" routine, and the repos it checks out (keep them in step with the
           # routine's): items from other repos stay in the queue.
           ROUTINE_ID: trig_012eN573T3sfs8nVp8nDkpPZ
           WORKER_REPOS: >-
